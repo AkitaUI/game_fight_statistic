@@ -66,18 +66,20 @@
     </div>
     <div class="card-body">
         <p>
-            Здесь можно вставить iframe с Grafana-дэшбордом, когда он будет настроен.
-            Для примера — контейнер под iframe.
+            Embedded Grafana dashboard with battles & players statistics.
+            Для работы нужно, чтобы Grafana была запущена и была доступна по адресу <code>http://localhost:3000</code>.
         </p>
         <div class="grafana-frame-placeholder">
-            <!-- Пример:
-            <iframe src="http://localhost:3000/d/your_dashboard_id"
-                    width="100%" height="400" frameborder="0"></iframe>
-            -->
-            <span>Grafana dashboard placeholder</span>
+            <iframe
+                src="http://localhost:3000/d/battles-stats/battles-players-statistics?orgId=1&refresh=30s"
+                width="100%"
+                height="420"
+                frameborder="0">
+            </iframe>
         </div>
     </div>
 </section>
+
 {% endblock %}
 
 {% block extra_js %}

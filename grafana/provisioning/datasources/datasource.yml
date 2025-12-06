@@ -1,0 +1,17 @@
+apiVersion: 1
+
+datasources:
+  - name: PostgreSQL Game Stats
+    uid: game-stats-pg
+    type: postgres
+    access: proxy
+    isDefault: true
+    url: db:5432
+    user: user
+    secureJsonData:
+      password: password
+    jsonData:
+      database: game_stats
+      sslmode: disable
+      postgresVersion: 1500
+      timescaledb: false

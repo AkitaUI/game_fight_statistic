@@ -1,0 +1,62 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15
+    container_name: game_stats_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: game_stats
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - game_stats_net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: game_stats_backend
+    restart: unless-stopped
+    environment:
+      # Совпадает с тем, что мы используем в app/core/config.py
+      DATABASE_URL: postgresql+psycopg2://user:password@db:5432/game_stats
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+    volumes:
+      # Опционально: чтобы код подхватывался без пересборки в dev-режиме
+      - ./backend/app:/app/app
+    networks:
+      - game_stats_net
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: game_stats_grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SECURITY_ALLOW_EMBEDDING: "true"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - db
+    networks:
+      - game_stats_net
+
+volumes:
+  db_data:
+
+networks:
+  game_stats_net:
+    driver: bridge

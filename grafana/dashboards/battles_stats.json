@@ -1,0 +1,182 @@
+{
+  "id": null,
+  "uid": "battles-stats",
+  "title": "Battles & Players Statistics",
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "style": "dark",
+  "tags": [
+    "game_stats",
+    "battles",
+    "players"
+  ],
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Battles per day (last 7 days)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "postgres",
+        "uid": "game-stats-pg"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 0 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "datasource": {
+            "type": "postgres",
+            "uid": "game-stats-pg"
+          },
+          "rawSql": "SELECT\n  date_trunc('day', b.started_at) AS \"time\",\n  count(*) AS battles\nFROM battles b\nWHERE $__timeFilter(b.started_at)\nGROUP BY 1\nORDER BY 1;",
+          "timeColumn": "time",
+          "group": [],
+          "where": []
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Top 10 players by kills",
+      "type": "barchart",
+      "datasource": {
+        "type": "postgres",
+        "uid": "game-stats-pg"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {},
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "legend": {
+          "displayMode": "hidden"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "datasource": {
+            "type": "postgres",
+            "uid": "game-stats-pg"
+          },
+          "rawSql": "SELECT\n  p.nickname AS player,\n  sum(s.kills) AS kills\nFROM player_battle_stats s\nJOIN players p ON p.id = s.player_id\nWHERE $__timeFilter(s.joined_at)\nGROUP BY 1\nORDER BY kills DESC\nLIMIT 10;",
+          "group": [],
+          "where": []
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Player performance summary",
+      "type": "table",
+      "datasource": {
+        "type": "postgres",
+        "uid": "game-stats-pg"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "datasource": {
+            "type": "postgres",
+            "uid": "game-stats-pg"
+          },
+          "rawSql": "SELECT\n  p.nickname AS player,\n  count(DISTINCT s.battle_id) AS battles,\n  sum(s.kills) AS kills,\n  sum(s.deaths) AS deaths,\n  CASE WHEN sum(s.deaths) = 0 THEN NULL ELSE round(sum(s.kills)::numeric / NULLIF(sum(s.deaths), 0), 2) END AS kd_ratio,\n  sum(s.score) AS total_score\nFROM player_battle_stats s\nJOIN players p ON p.id = s.player_id\nWHERE $__timeFilter(s.joined_at)\nGROUP BY 1\nORDER BY total_score DESC\nLIMIT 50;",
+          "group": [],
+          "where": []
+        }
+      ]
+    }
+  ]
+}

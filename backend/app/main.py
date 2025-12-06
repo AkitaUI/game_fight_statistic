@@ -15,10 +15,9 @@ def create_app() -> FastAPI:
         version="1.0.0",
     )
 
-    # CORS — чтобы при необходимости можно было ходить к API с внешнего фронта
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],          # при желании можно сузить список доменов
+        allow_origins=["*"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
