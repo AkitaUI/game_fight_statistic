@@ -1,9 +1,11 @@
-"""
-Пакет работы с БД:
-- config: настройки подключения
-- base: engine, Session, Base
-- models: ORM-модели
-- repositories: репозитории для доступа к данным
-"""
+from __future__ import annotations
 
-from .base import Base, engine, SessionLocal
+from .session import engine, SessionLocal, get_session
+from .base import Base
+
+__all__ = [
+    "engine",
+    "SessionLocal",
+    "get_session",
+    "Base",
+]
