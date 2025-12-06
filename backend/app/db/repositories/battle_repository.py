@@ -1,0 +1,124 @@
+# app/db/repositories/battle_repository.py
+
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Iterable, List, Optional
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from ..models import Battle, BattleTeam, PlayerBattleStats, Player
+from .base_repository import BaseRepository
+
+
+class BattleRepository(BaseRepository[Battle]):
+    """Операции над боями и базовыми сущностями вокруг них."""
+
+    def __init__(self, session: Session) -> None:
+        super().__init__(session)
+
+    # --- Бои ---
+
+    def create_battle(
+        self,
+        started_at: datetime,
+        map_id: int | None = None,
+        mode_id: int | None = None,
+        is_ranked: bool = False,
+        external_match_id: str | None = None,
+    ) -> Battle:
+        battle = Battle(
+            started_at=started_at,
+            map_id=map_id,
+            mode_id=mode_id,
+            is_ranked=is_ranked,
+            external_match_id=external_match_id,
+        )
+        self.session.add(battle)
+        return battle
+
+    def finish_battle(self, battle: Battle, ended_at: datetime | None = None) -> None:
+        battle.ended_at = ended_at or datetime.utcnow()
+
+    def get_by_id(self, battle_id: int) -> Optional[Battle]:
+        stmt = select(Battle).where(Battle.id == battle_id)
+        return self.session.execute(stmt).scalar_one_or_none()
+
+    def list_battles_for_player(
+        self,
+        player_id: int,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> List[Battle]:
+        """
+        Все бои, где участвовал игрок.
+        """
+        stmt = (
+            select(Battle)
+            .join(PlayerBattleStats, PlayerBattleStats.battle_id == Battle.id)
+            .where(PlayerBattleStats.player_id == player_id)
+            .order_by(Battle.started_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+        return list(self.session.execute(stmt).scalars().all())
+
+    # --- Команды ---
+
+    def add_teams(
+        self,
+        battle: Battle,
+        teams: Iterable[tuple[int, str | None]],
+    ) -> List[BattleTeam]:
+        """
+        Добавить команды в бой.
+        teams: список кортежей (team_index, name).
+        """
+        result: List[BattleTeam] = []
+        for team_index, name in teams:
+            team = BattleTeam(
+                battle=battle,
+                team_index=team_index,
+                name=name,
+            )
+            self.session.add(team)
+            result.append(team)
+        return result
+
+    # --- Участие игрока в бою ---
+
+    def add_player_to_battle(
+        self,
+        battle: Battle,
+        player: Player,
+        team: BattleTeam | None = None,
+    ) -> PlayerBattleStats:
+        stats = PlayerBattleStats(
+            battle=battle,
+            player=player,
+            team=team,
+            kills=0,
+            deaths=0,
+            assists=0,
+            damage_dealt=0,
+            damage_taken=0,
+            score=0,
+            headshots=0,
+        )
+        self.session.add(stats)
+        return stats
+
+    def get_player_stats_in_battle(
+        self,
+        battle_id: int,
+        player_id: int,
+    ) -> Optional[PlayerBattleStats]:
+        stmt = (
+            select(PlayerBattleStats)
+            .where(
+                PlayerBattleStats.battle_id == battle_id,
+                PlayerBattleStats.player_id == player_id,
+            )
+        )
+        return self.session.execute(stmt).scalar_one_or_none()
