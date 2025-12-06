@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="card">
+    <div class="card-header">
+        <h1>Player statistics</h1>
+    </div>
+    <div class="card-body">
+        <div class="filters">
+            <label>
+                Player ID:
+                <input type="number" id="stats-player-id" min="1" required>
+            </label>
+            <label>
+                Ranked only:
+                <input type="checkbox" id="stats-ranked-only">
+            </label>
+            <button id="load-player-stats-btn" class="btn">Load stats</button>
+        </div>
+
+        <div id="stats-summary-section" class="stats-section">
+            <h2>Summary</h2>
+            <pre id="stats-summary" class="pre-block"></pre>
+        </div>
+
+        <div id="stats-maps-section" class="stats-section">
+            <h2>By maps</h2>
+            <table class="data-table" id="stats-maps-table">
+                <thead>
+                <tr>
+                    <th>Map</th>
+                    <th>Battles</th>
+                    <th>Wins</th>
+                    <th>Losses</th>
+                    <th>Win rate</th>
+                    <th>Avg. kills</th>
+                    <th>Avg. deaths</th>
+                    <th>Avg. score</th>
+                </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <div id="stats-weapons-section" class="stats-section">
+            <h2>By weapons</h2>
+            <table class="data-table" id="stats-weapons-table">
+                <thead>
+                <tr>
+                    <th>Weapon</th>
+                    <th>Kills</th>
+                    <th>Headshots</th>
+                    <th>Accuracy</th>
+                    <th>Usage count</th>
+                </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<section class="card">
+    <div class="card-header">
+        <h2>Grafana dashboard</h2>
+    </div>
+    <div class="card-body">
+        <p>
+            Здесь можно вставить iframe с Grafana-дэшбордом, когда он будет настроен.
+            Для примера — контейнер под iframe.
+        </p>
+        <div class="grafana-frame-placeholder">
+            <!-- Пример:
+            <iframe src="http://localhost:3000/d/your_dashboard_id"
+                    width="100%" height="400" frameborder="0"></iframe>
+            -->
+            <span>Grafana dashboard placeholder</span>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        window.GameStatsUI.initStatsPage();
+    });
+</script>
+{% endblock %}

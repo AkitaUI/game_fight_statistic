@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="card">
+    <div class="card-header">
+        <h1>Battles</h1>
+        <div class="card-actions">
+            <button id="reload-battles-btn" class="btn">Reload</button>
+        </div>
+    </div>
+
+    <div class="card-body">
+        <div class="filters">
+            <label>
+                Player ID:
+                <input type="number" id="battles-player-id" min="1" placeholder="Optional">
+            </label>
+            <label>
+                Ranked only:
+                <input type="checkbox" id="battles-ranked-only">
+            </label>
+        </div>
+
+        <table class="data-table" id="battles-table">
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>Map</th>
+                <th>Mode</th>
+                <th>Ranked</th>
+                <th>Started</th>
+                <th>Ended</th>
+            </tr>
+            </thead>
+            <tbody>
+            <!-- наполняется через JS -->
+            </tbody>
+        </table>
+
+        <div class="pagination">
+            <button id="battles-prev" class="btn btn-secondary" disabled>Prev</button>
+            <span id="battles-page-info"></span>
+            <button id="battles-next" class="btn btn-secondary" disabled>Next</button>
+        </div>
+    </div>
+</section>
+
+<section class="card" id="battle-details-card" style="display: none;">
+    <div class="card-header">
+        <h2>Battle details</h2>
+    </div>
+    <div class="card-body">
+        <pre id="battle-details-content" class="pre-block"></pre>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        window.GameStatsUI.initBattlesPage();
+    });
+</script>
+{% endblock %}
