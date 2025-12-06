@@ -1,10 +1,7 @@
-from contextlib import contextmanager
-from typing import Generator
+# app/db/base.py
+from __future__ import annotations
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import DeclarativeBase, sessionmaker, Session
-
-from .config import DATABASE_URL
+from sqlalchemy.orm import DeclarativeBase
 
 
 class Base(DeclarativeBase):
@@ -12,37 +9,4 @@ class Base(DeclarativeBase):
     pass
 
 
-# Engine БД
-engine = create_engine(
-    DATABASE_URL,
-    echo=False,
-    future=True,
-)
-
-SessionLocal = sessionmaker(
-    bind=engine,
-    autoflush=False,
-    autocommit=False,
-    expire_on_commit=False,
-    class_=Session,
-)
-
-
-@contextmanager
-def get_session() -> Generator[Session, None, None]:
-    """
-    Контекстный менеджер для безопасной работы с сессией.
-    Пример использования:
-        with get_session() as session:
-            repo = PlayerRepository(session)
-            player = repo.get_by_id(1)
-    """
-    session: Session = SessionLocal()
-    try:
-        yield session
-        session.commit()
-    except Exception:
-        session.rollback()
-        raise
-    finally:
-        session.close()
+from app.db.models import user, player, dictionary, battle  # noqa: F401
