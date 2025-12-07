@@ -117,7 +117,10 @@ class StatsRepository(BaseRepository[None]):
                 func.coalesce(func.sum(WeaponStats.kills), 0).label("kills"),
                 func.coalesce(func.sum(WeaponStats.headshots), 0).label("headshots"),
             )
-            .join(PlayerBattleStats, PlayerBattleStats.id == WeaponStats.player_battle_stats_id)
+            .join(
+                PlayerBattleStats,
+                PlayerBattleStats.id == WeaponStats.player_battle_stats_id,
+            )
             .join(Weapon, Weapon.id == WeaponStats.weapon_id)
             .where(PlayerBattleStats.player_id == player_id)
             .group_by(Weapon.id, Weapon.name)
@@ -142,3 +145,40 @@ class StatsRepository(BaseRepository[None]):
                 }
             )
         return result
+
+    # ------------------------------------------------------------------
+    # ОБЁРТКИ ПОД ИМЕНА, КОТОРЫЕ ЖДУТ service/api
+    # ------------------------------------------------------------------
+
+    def get_player_stats_summary(
+        self,
+        player_id: int,
+        filters: object | None = None,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Обёртка, которую вызывает StatsService.
+        Сейчас просто игнорируем filters и используем get_player_overview.
+        """
+        return self.get_player_overview(player_id)
+
+    def get_player_stats_by_maps(
+        self,
+        player_id: int,
+        filters: object | None = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Обёртка над get_player_stats_by_map.
+        filters пока игнорируем.
+        """
+        return self.get_player_stats_by_map(player_id)
+
+    def get_player_stats_by_weapons(
+        self,
+        player_id: int,
+        filters: object | None = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Обёртка над get_player_weapon_stats.
+        filters пока игнорируем.
+        """
+        return self.get_player_weapon_stats(player_id)
