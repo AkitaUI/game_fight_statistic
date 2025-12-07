@@ -153,32 +153,42 @@ class StatsRepository(BaseRepository[None]):
     def get_player_stats_summary(
         self,
         player_id: int,
-        filters: object | None = None,
+        **kwargs: Any,
     ) -> Optional[Dict[str, Any]]:
         """
         Обёртка, которую вызывает StatsService.
-        Сейчас просто игнорируем filters и используем get_player_overview.
+        Доп. фильтры (ranked_only, date_from, date_to и т.п.) сейчас игнорируем.
         """
         return self.get_player_overview(player_id)
 
     def get_player_stats_by_maps(
         self,
         player_id: int,
-        filters: object | None = None,
+        **kwargs: Any,
     ) -> List[Dict[str, Any]]:
         """
         Обёртка над get_player_stats_by_map.
-        filters пока игнорируем.
         """
         return self.get_player_stats_by_map(player_id)
 
     def get_player_stats_by_weapons(
         self,
         player_id: int,
-        filters: object | None = None,
+        **kwargs: Any,
     ) -> List[Dict[str, Any]]:
         """
         Обёртка над get_player_weapon_stats.
-        filters пока игнорируем.
         """
         return self.get_player_weapon_stats(player_id)
+
+    def get_player_stats_by_weapon(
+        self,
+        player_id: int,
+        **kwargs: Any,
+    ) -> List[Dict[str, Any]]:
+        """
+        Алиас под имя, которое ожидает StatsService:
+        get_player_stats_by_weapon -> get_player_weapon_stats.
+        """
+        return self.get_player_weapon_stats(player_id)
+
