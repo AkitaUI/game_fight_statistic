@@ -53,6 +53,21 @@ services:
       - db
     networks:
       - game_stats_net
+    
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: game_stats_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - db
+    networks:
+      - game_stats_net
+
 
 volumes:
   db_data:

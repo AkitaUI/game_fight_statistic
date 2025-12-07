@@ -45,6 +45,57 @@ class BattleRepository(BaseRepository[Battle]):
         stmt = select(Battle).where(Battle.id == battle_id)
         return self.session.execute(stmt).scalar_one_or_none()
 
+    def list_battles(
+        self,
+        player_id: Optional[int] = None,
+        map_id: Optional[int] = None,
+        mode_id: Optional[int] = None,
+        is_ranked: Optional[bool] = None,
+        date_from: Optional[datetime] = None,
+        date_to: Optional[datetime] = None,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> List[Battle]:
+        """
+        Список боёв с простыми фильтрами.
+
+        Этот метод вызывается BattleService.list_battles и далее
+        используется эндпоинтом /battles.
+        """
+        stmt = select(Battle)
+
+        # Если указан player_id — фильтруем через участие игрока
+        if player_id is not None:
+            stmt = stmt.join(
+                PlayerBattleStats,
+                PlayerBattleStats.battle_id == Battle.id,
+            ).where(
+                PlayerBattleStats.player_id == player_id
+            )
+
+        if map_id is not None:
+            stmt = stmt.where(Battle.map_id == map_id)
+
+        if mode_id is not None:
+            stmt = stmt.where(Battle.mode_id == mode_id)
+
+        if is_ranked is not None:
+            stmt = stmt.where(Battle.is_ranked == is_ranked)
+
+        if date_from is not None:
+            stmt = stmt.where(Battle.started_at >= date_from)
+
+        if date_to is not None:
+            stmt = stmt.where(Battle.started_at <= date_to)
+
+        stmt = (
+            stmt.order_by(Battle.started_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+
+        return list(self.session.execute(stmt).scalars().all())
+
     def list_battles_for_player(
         self,
         player_id: int,

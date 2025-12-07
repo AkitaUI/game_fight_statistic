@@ -25,15 +25,7 @@ SessionLocal = sessionmaker(
 
 
 def get_session() -> Generator[Session, None, None]:
-    """
-    Зависимость FastAPI для получения сессии БД.
-
-    Пример использования:
-        def endpoint(session: Session = Depends(get_session)):
-            ...
-
-    Сессия гарантированно закрывается после обработки запроса.
-    """
+    
     db = SessionLocal()
     try:
         yield db

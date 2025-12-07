@@ -16,6 +16,10 @@
             <span class="logo-sub">Stats</span>
         </div>
         <nav class="main-nav">
+            <a href="{{ request.url_for('index') }}"
+               class="nav-link {% if request.url.path == '/' %}nav-link-active{% endif %}">
+                Home
+            </a>
             <a href="{{ request.url_for('players_page') }}"
                class="nav-link {% if request.url.path.startswith('/players') %}nav-link-active{% endif %}">
                 Players
@@ -27,6 +31,11 @@
             <a href="{{ request.url_for('stats_page') }}"
                class="nav-link {% if request.url.path.startswith('/stats') %}nav-link-active{% endif %}">
                 Stats
+            </a>
+            <a href="/docs"
+               class="nav-link"
+               target="_blank" rel="noopener">
+                API docs
             </a>
         </nav>
     </div>
@@ -46,6 +55,11 @@
 <footer class="page-footer">
     <div class="container footer-inner">
         <span>Game Stats · Demo web UI</span>
+        <span style="margin-left: 12px; font-size: 0.8rem;">
+            <a href="/docs" target="_blank" rel="noopener">API docs</a> ·
+            <a href="http://localhost:3000" target="_blank" rel="noopener">Grafana</a> ·
+            <a href="http://localhost:5050" target="_blank" rel="noopener">pgAdmin</a>
+        </span>
     </div>
 </footer>
 
