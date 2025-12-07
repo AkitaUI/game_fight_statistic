@@ -5,34 +5,33 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
-# Путь к шаблонам — относительно корня backend-приложения
-templates = Jinja2Templates(directory="app/views/templates")
-
 router = APIRouter()
 
+templates = Jinja2Templates(directory="app/views/templates")
 
-@router.get("/", response_class=HTMLResponse, name="index")
-async def index(request: Request) -> HTMLResponse:
+
+@router.get("/", name="index", response_class=HTMLResponse)
+def index(request: Request) -> HTMLResponse:
     """
-    Главная страница — просто редирект-подобный вариант:
-    показываем небольшой дэшборд или ссылку на разделы.
-    Для простоты – меню + приветствие.
+    Главная страница — простая заглушка.
+    Можно перенаправлять пользователя к разделу Players.
     """
     return templates.TemplateResponse(
         "base.html",
         {
             "request": request,
-            "page_title": "Game Stats – Home",
-            "content_template": None,  # базовый шаблон сам покажет заглушку
+            "page_title": "Game Stats",
         },
     )
 
 
-@router.get("/players", response_class=HTMLResponse, name="players_page")
-async def players_page(request: Request) -> HTMLResponse:
+@router.get("/players-ui", name="players_page", response_class=HTMLResponse)
+def players_page(request: Request) -> HTMLResponse:
     """
-    Страница списка игроков.
-    Данные подтягиваются через JS из REST API (/players).
+    HTML-страница списка игроков.
+
+    JSON-API по-прежнему доступен по /players,
+    эта страница просто использует его через JS.
     """
     return templates.TemplateResponse(
         "players.html",
@@ -43,10 +42,13 @@ async def players_page(request: Request) -> HTMLResponse:
     )
 
 
-@router.get("/battles", response_class=HTMLResponse, name="battles_page")
-async def battles_page(request: Request) -> HTMLResponse:
+@router.get("/battles-ui", name="battles_page", response_class=HTMLResponse)
+def battles_page(request: Request) -> HTMLResponse:
     """
-    Страница списка боёв.
+    HTML-страница списка боёв.
+
+    JSON-API по-прежнему доступен по /battles,
+    а страница подтягивает данные через JS.
     """
     return templates.TemplateResponse(
         "battles.html",
@@ -57,17 +59,15 @@ async def battles_page(request: Request) -> HTMLResponse:
     )
 
 
-@router.get("/stats", response_class=HTMLResponse, name="stats_page")
-async def stats_page(request: Request) -> HTMLResponse:
+@router.get("/stats", name="stats_page", response_class=HTMLResponse)
+def stats_page(request: Request) -> HTMLResponse:
     """
-    Страница аналитики.
-    Здесь можно ввести ID игрока и увидеть его статистику,
-    а также вставить ссылку/iframe на Grafana.
+    HTML-страница статистики игрока (как у тебя уже было).
     """
     return templates.TemplateResponse(
         "stats.html",
         {
             "request": request,
-            "page_title": "Player Stats",
+            "page_title": "Stats",
         },
     )

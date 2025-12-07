@@ -47,6 +47,7 @@ services:
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_SECURITY_ALLOW_EMBEDDING: "true"
     volumes:
+      - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning
       - ./grafana/dashboards:/var/lib/grafana/dashboards
     depends_on:
@@ -71,6 +72,7 @@ services:
 
 volumes:
   db_data:
+  grafana_data:
 
 networks:
   game_stats_net:
