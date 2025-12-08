@@ -66,7 +66,6 @@ def list_players(
 ):
     service = PlayerService(session)
     items: List[PlayerListItem] = service.list_players(offset=offset, limit=limit)
-    # Лучше сделать реальный подсчёт total в репозитории; здесь упрощённо:
     total = len(items) if offset == 0 else offset + len(items)
     return PagedResponse(total=total, items=items)
 
@@ -99,7 +98,6 @@ def get_player_summary(
     ranked_only: bool | None = Query(None),
     session: Session = Depends(get_session),
 ):
-    # Тут можно распарсить date_from/date_to в datetime, но для краткости передаём None
     filters = PlayerStatsFilter(
         date_from=None,
         date_to=None,
