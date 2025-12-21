@@ -1,5 +1,4 @@
 # app/db/models/battle.py
-
 from __future__ import annotations
 
 from datetime import datetime
@@ -8,13 +7,11 @@ from typing import List, Optional, TYPE_CHECKING
 from sqlalchemy import (
     BigInteger,
     Boolean,
-    Date,
     DateTime,
     ForeignKey,
     Integer,
     SmallInteger,
     String,
-    Text,
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -22,6 +19,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from ..base import Base
 
 if TYPE_CHECKING:
+    from .game import Game
     from .dictionary import Map, GameMode, Weapon
     from .player import Player
 
@@ -32,6 +30,14 @@ class Battle(Base):
     id: Mapped[int] = mapped_column(
         BigInteger,
         primary_key=True,
+    )
+
+    # NEW: изоляция данных по игре (multi-game support)
+    game_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("games.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
 
     started_at: Mapped[datetime] = mapped_column(
@@ -77,6 +83,10 @@ class Battle(Base):
     )
 
     # Связи
+    game: Mapped["Game"] = relationship(
+        back_populates="battles",
+    )
+
     map: Mapped[Optional["Map"]] = relationship(
         back_populates="battles",
     )
@@ -135,13 +145,11 @@ class BattleTeam(Base):
         back_populates="team",
     )
 
-    # Валидацию уникальности (battle_id, team_index) будем задавать через UniqueConstraint в миграции
-    # либо через __table_args__ здесь, если нужно.
+    # Уникальность (battle_id, team_index) лучше зафиксировать в __table_args__ или миграцией
     __table_args__ = (
-        # from sqlalchemy import UniqueConstraint
         # UniqueConstraint("battle_id", "team_index", name="uq_battle_team_index"),
     )
-    
+
 
 class PlayerBattleStats(Base):
     __tablename__ = "player_battle_stats"
@@ -169,6 +177,15 @@ class PlayerBattleStats(Base):
         BigInteger,
         ForeignKey("battle_teams.id", ondelete="SET NULL"),
         nullable=True,
+        index=True,
+    )
+
+    # NEW: дублируем game_id для быстрых выборок и строгой изоляции без JOIN battles
+    # Это можно заполнить автоматически на уровне сервиса при создании PlayerBattleStats
+    game_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("games.id", ondelete="CASCADE"),
+        nullable=False,
         index=True,
     )
 
@@ -210,13 +227,16 @@ class PlayerBattleStats(Base):
         back_populates="player_stats",
     )
 
+    # Доп. связь на игру (удобно для фильтрации/валидации)
+    game: Mapped["Game"] = relationship()
+
     weapon_stats: Mapped[List["WeaponStats"]] = relationship(
         back_populates="player_battle_stats",
         cascade="all, delete-orphan",
     )
 
     __table_args__ = (
-        # Здесь можно добавить UniqueConstraint("battle_id", "player_id")
+        # UniqueConstraint("battle_id", "player_id", name="uq_battle_player"),
     )
 
 
@@ -257,5 +277,5 @@ class WeaponStats(Base):
     )
 
     __table_args__ = (
-        # Здесь можно добавить UniqueConstraint("player_battle_stats_id", "weapon_id")
+        # UniqueConstraint("player_battle_stats_id", "weapon_id", name="uq_weapon_stats_per_battle"),
     )

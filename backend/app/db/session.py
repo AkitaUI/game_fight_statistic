@@ -7,6 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 
 from app.core.config import DATABASE_URL
+from app.core.config import settings
 
 # Создаём sync-engine для SQLAlchemy 2.x
 engine = create_engine(
@@ -21,13 +22,15 @@ SessionLocal = sessionmaker(
     autocommit=False,
     expire_on_commit=False,
     class_=Session,
+    future=True
 )
 
 
-def get_session() -> Generator[Session, None, None]:
-    
+def get_db() -> Session:
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
+
+get_session = get_db

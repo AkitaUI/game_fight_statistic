@@ -3,7 +3,7 @@ version: "3.9"
 services:
   db:
     image: postgres:15
-    container_name: game_stats_db
+    container_name: game_stats_db_2
     restart: unless-stopped
     environment:
       POSTGRES_DB: game_stats
@@ -20,7 +20,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: game_stats_backend
+    container_name: game_stats_backend_2
     restart: unless-stopped
     environment:
       # Совпадает с тем, что мы используем в app/core/config.py
@@ -37,7 +37,7 @@ services:
 
   grafana:
     image: grafana/grafana:latest
-    container_name: game_stats_grafana
+    container_name: game_stats_grafana_2
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -57,7 +57,7 @@ services:
     
   pgadmin:
     image: dpage/pgadmin4:latest
-    container_name: game_stats_pgadmin
+    container_name: game_stats_pgadmin_2
     restart: unless-stopped
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@example.com

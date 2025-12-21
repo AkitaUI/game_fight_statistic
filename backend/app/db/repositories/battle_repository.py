@@ -1,5 +1,4 @@
 # app/db/repositories/battle_repository.py
-
 from __future__ import annotations
 
 from datetime import datetime
@@ -13,22 +12,26 @@ from .base_repository import BaseRepository
 
 
 class BattleRepository(BaseRepository[Battle]):
-    """Операции над боями и базовыми сущностями вокруг них."""
+    """Операции над боями и сущностями вокруг них (в контексте игры)."""
 
-    def __init__(self, session: Session) -> None:
-        super().__init__(session)
+    def __init__(self, session: Session, game_id: int | None = None) -> None:
+        super().__init__(session, model=Battle, game_id=game_id)
 
     # --- Бои ---
 
     def create_battle(
         self,
         started_at: datetime,
+        game_id: int | None = None,
         map_id: int | None = None,
         mode_id: int | None = None,
         is_ranked: bool = False,
         external_match_id: str | None = None,
     ) -> Battle:
+        gid = game_id if game_id is not None else self.require_game_id()
+
         battle = Battle(
+            game_id=gid,
             started_at=started_at,
             map_id=map_id,
             mode_id=mode_id,
@@ -41,12 +44,14 @@ class BattleRepository(BaseRepository[Battle]):
     def finish_battle(self, battle: Battle, ended_at: datetime | None = None) -> None:
         battle.ended_at = ended_at or datetime.utcnow()
 
-    def get_by_id(self, battle_id: int) -> Optional[Battle]:
-        stmt = select(Battle).where(Battle.id == battle_id)
+    def get_by_id(self, battle_id: int, game_id: int | None = None) -> Optional[Battle]:
+        gid = game_id if game_id is not None else self.require_game_id()
+        stmt = select(Battle).where(Battle.id == battle_id, Battle.game_id == gid)
         return self.session.execute(stmt).scalar_one_or_none()
 
     def list_battles(
         self,
+        game_id: int | None = None,
         player_id: Optional[int] = None,
         map_id: Optional[int] = None,
         mode_id: Optional[int] = None,
@@ -57,20 +62,19 @@ class BattleRepository(BaseRepository[Battle]):
         limit: int = 50,
     ) -> List[Battle]:
         """
-        Список боёв с простыми фильтрами.
-
-        Этот метод вызывается BattleService.list_battles и далее
-        используется эндпоинтом /battles.
+        Список боёв с фильтрами. Всегда ограничивается рамками game_id.
         """
-        stmt = select(Battle)
+        gid = game_id if game_id is not None else self.require_game_id()
 
-        # Если указан player_id — фильтруем через участие игрока
+        stmt = select(Battle).where(Battle.game_id == gid)
+
         if player_id is not None:
-            stmt = stmt.join(
-                PlayerBattleStats,
-                PlayerBattleStats.battle_id == Battle.id,
-            ).where(
-                PlayerBattleStats.player_id == player_id
+            stmt = (
+                stmt.join(PlayerBattleStats, PlayerBattleStats.battle_id == Battle.id)
+                .where(
+                    PlayerBattleStats.player_id == player_id,
+                    PlayerBattleStats.game_id == gid,
+                )
             )
 
         if map_id is not None:
@@ -88,27 +92,26 @@ class BattleRepository(BaseRepository[Battle]):
         if date_to is not None:
             stmt = stmt.where(Battle.started_at <= date_to)
 
-        stmt = (
-            stmt.order_by(Battle.started_at.desc())
-            .offset(offset)
-            .limit(limit)
-        )
-
+        stmt = stmt.order_by(Battle.started_at.desc()).offset(offset).limit(limit)
         return list(self.session.execute(stmt).scalars().all())
 
     def list_battles_for_player(
         self,
         player_id: int,
+        game_id: int | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> List[Battle]:
-        """
-        Все бои, где участвовал игрок.
-        """
+        gid = game_id if game_id is not None else self.require_game_id()
+
         stmt = (
             select(Battle)
             .join(PlayerBattleStats, PlayerBattleStats.battle_id == Battle.id)
-            .where(PlayerBattleStats.player_id == player_id)
+            .where(
+                Battle.game_id == gid,
+                PlayerBattleStats.game_id == gid,
+                PlayerBattleStats.player_id == player_id,
+            )
             .order_by(Battle.started_at.desc())
             .offset(offset)
             .limit(limit)
@@ -122,10 +125,6 @@ class BattleRepository(BaseRepository[Battle]):
         battle: Battle,
         teams: Iterable[tuple[int, str | None]],
     ) -> List[BattleTeam]:
-        """
-        Добавить команды в бой.
-        teams: список кортежей (team_index, name).
-        """
         result: List[BattleTeam] = []
         for team_index, name in teams:
             team = BattleTeam(
@@ -145,7 +144,12 @@ class BattleRepository(BaseRepository[Battle]):
         player: Player,
         team: BattleTeam | None = None,
     ) -> PlayerBattleStats:
+        # Жёсткая изоляция: игрок и бой должны быть одной игры
+        if player.game_id != battle.game_id:
+            raise ValueError("Player and Battle belong to different games")
+
         stats = PlayerBattleStats(
+            game_id=battle.game_id,
             battle=battle,
             player=player,
             team=team,
@@ -164,10 +168,14 @@ class BattleRepository(BaseRepository[Battle]):
         self,
         battle_id: int,
         player_id: int,
+        game_id: int | None = None,
     ) -> Optional[PlayerBattleStats]:
+        gid = game_id if game_id is not None else self.require_game_id()
+
         stmt = (
             select(PlayerBattleStats)
             .where(
+                PlayerBattleStats.game_id == gid,
                 PlayerBattleStats.battle_id == battle_id,
                 PlayerBattleStats.player_id == player_id,
             )

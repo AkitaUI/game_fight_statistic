@@ -1,11 +1,11 @@
 # app/db/models/user.py
-
 from __future__ import annotations
 
+import enum
 from datetime import datetime
 from typing import List, Optional, TYPE_CHECKING
 
-from sqlalchemy import BigInteger, Boolean, DateTime, String, func, text
+from sqlalchemy import BigInteger, Boolean, DateTime, Enum, String, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..base import Base
@@ -14,32 +14,29 @@ if TYPE_CHECKING:
     from .player import Player
 
 
+class UserRole(str, enum.Enum):
+    player = "player"
+    analyst = "analyst"
+    admin = "admin"
+
+
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(
-        BigInteger,
-        primary_key=True,
-        index=True,
-    )
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, index=True)
 
-    username: Mapped[str] = mapped_column(
-        String(32),
-        unique=True,
+    username: Mapped[str] = mapped_column(String(32), unique=True, nullable=False, index=True)
+
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    role: Mapped[UserRole] = mapped_column(
+        Enum(UserRole, name="user_role"),
         nullable=False,
-        index=True,
+        default=UserRole.player,
+        server_default=text("'player'"),
     )
 
-    password_hash: Mapped[str] = mapped_column(
-        String(255),
-        nullable=False,
-    )
-
-    email: Mapped[Optional[str]] = mapped_column(
-        String(255),
-        unique=True,
-        nullable=True,
-    )
+    email: Mapped[Optional[str]] = mapped_column(String(255), unique=True, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

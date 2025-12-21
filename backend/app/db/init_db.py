@@ -3,17 +3,18 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from app.db.base import Base  # Base = DeclarativeBase
+from app.db.base import Base
 from app.db.session import engine, SessionLocal
-from app.db.models import user, player, dictionary, battle  # noqa: F401
+
+# Важно: импорт моделей, чтобы они зарегистрировались в Base.metadata
+from app.db import models  # noqa: F401
 
 
 def init_db() -> None:
-    
-    # Импорты моделей выше нужны, чтобы все таблицы были зарегистрированы в Base.metadata
+    """Создаёт таблицы (обычно для dev). В проде лучше использовать alembic."""
     Base.metadata.create_all(bind=engine)
 
 
 def get_db_session() -> Session:
-    
+    """Совместимость со старым кодом (если где-то вызывается напрямую)."""
     return SessionLocal()
