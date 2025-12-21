@@ -1,17 +1,20 @@
+# app/core/config.py
 from __future__ import annotations
 
-import os
-
-from pydantic import BaseSettings
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    DATABASE_URL: str = "postgresql+psycopg2://user:password@localhost:5432/game_stats"
+    DATABASE_URL: str
+
+    # Security
+    SECRET_KEY: str = "_emGtl3MtaE8MsaMZFK2mPLMa_INqlRYgxAkoP8gBqJKwad125XPqF57h8jsVkyBMzf8HGFzcOoOyK15irRl2Q"
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24h
 
     class Config:
         env_file = ".env"
-        env_file_encoding = "utf-8"
+        extra = "ignore"
 
 
 settings = Settings()
-DATABASE_URL = settings.DATABASE_URL
