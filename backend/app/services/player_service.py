@@ -1,14 +1,9 @@
 # app/services/player_service.py
 from __future__ import annotations
 
-from typing import List
-
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import (
-    PlayerNotFoundError,
-    PlayerAlreadyExistsError,
-)
+from app.core.exceptions import PlayerNotFoundError, PlayerAlreadyExistsError
 from app.db.repositories.player_repository import PlayerRepository
 from app.db.repositories.stats_repository import StatsRepository
 from app.schemas.player import (
@@ -29,12 +24,15 @@ class PlayerService:
 
     # --- CRUD по игрокам ---
 
-    def create_player(self, data: PlayerCreate) -> PlayerRead:
-        existing = self.player_repo.get_by_nickname(data.nickname)
+    def create_player(self, game_id: int, data: PlayerCreate) -> PlayerRead:
+        # nickname уникален в рамках game_id
+        existing = self.player_repo.with_game(game_id).get_by_nickname(data.nickname)
         if existing is not None:
-            raise PlayerAlreadyExistsError(f"Player with nickname '{data.nickname}' already exists")
+            raise PlayerAlreadyExistsError(
+                f"Player with nickname '{data.nickname}' already exists in game_id={game_id}"
+            )
 
-        player = self.player_repo.create_player(
+        player = self.player_repo.with_game(game_id).create(
             nickname=data.nickname,
             user_id=data.user_id,
         )
@@ -42,44 +40,51 @@ class PlayerService:
         self.session.refresh(player)
         return PlayerRead.from_orm(player)
 
-    def get_player(self, player_id: int) -> PlayerRead:
-        player = self.player_repo.get_by_id(player_id)
+    def get_player(self, game_id: int, player_id: int) -> PlayerRead:
+        player = self.player_repo.with_game(game_id).get_by_id(player_id)
         if player is None:
-            raise PlayerNotFoundError(f"Player with id={player_id} not found")
+            raise PlayerNotFoundError(f"Player with id={player_id} not found in game_id={game_id}")
         return PlayerRead.from_orm(player)
 
-    def list_players(self, offset: int = 0, limit: int = 100) -> list[PlayerListItem]:
-        players = self.player_repo.list_players(offset=offset, limit=limit)
+    def list_players(self, game_id: int, offset: int = 0, limit: int = 100) -> list[PlayerListItem]:
+        players = self.player_repo.with_game(game_id).list_players(offset=offset, limit=limit)
         return [PlayerListItem.from_orm(p) for p in players]
 
-    def delete_player(self, player_id: int) -> None:
-        player = self.player_repo.get_by_id(player_id)
+    def delete_player(self, game_id: int, player_id: int) -> None:
+        player = self.player_repo.with_game(game_id).get_by_id(player_id)
         if player is None:
-            raise PlayerNotFoundError(f"Player with id={player_id} not found")
+            raise PlayerNotFoundError(f"Player with id={player_id} not found in game_id={game_id}")
         self.player_repo.delete(player)
         self.session.commit()
 
     # --- Статистика игрока ---
 
-    def get_player_stats_summary(
-        self,
-        player_id: int,
-        filters: PlayerStatsFilter,
-    ) -> PlayerWithStatsSummary:
-        player = self.player_repo.get_by_id(player_id)
+    def get_player_stats_summary(self, game_id: int, player_id: int, filters: PlayerStatsFilter) -> PlayerWithStatsSummary:
+        player = self.player_repo.with_game(game_id).get_by_id(player_id)
         if player is None:
-            raise PlayerNotFoundError(f"Player with id={player_id} not found")
+            raise PlayerNotFoundError(f"Player with id={player_id} not found in game_id={game_id}")
 
-        raw = self.stats_repo.get_player_stats_summary(
-            player_id=player_id,
-            date_from=filters.date_from,
-            date_to=filters.date_to,
-            map_ids=filters.map_ids,
-            mode_ids=filters.mode_ids,
-            ranked_only=filters.ranked_only,
-        )
-        # Ожидаем, что stats_repository вернёт dict с ключами, совпадающими с PlayerStatsSummary
-        stats = PlayerStatsSummary(**raw)
+        raw = self.stats_repo.with_game(game_id).get_player_stats_summary(player_id=player_id)
+
+        # raw может быть None, если боёв нет
+        if raw is None:
+            stats = PlayerStatsSummary(
+                player_id=player_id,
+                total_battles=0,
+                wins=0,
+                losses=0,
+                draws=0,
+                win_rate=0.0,
+                total_kills=0,
+                total_deaths=0,
+                total_assists=0,
+                avg_kd_ratio=0.0,
+                total_damage_dealt=0,
+                total_damage_taken=0,
+                avg_score=0.0,
+            )
+        else:
+            stats = PlayerStatsSummary(**raw)
 
         return PlayerWithStatsSummary(
             player=PlayerRead.from_orm(player),
