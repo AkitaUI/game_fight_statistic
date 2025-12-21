@@ -4,25 +4,24 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional, List
 
+from pydantic import Field
+
 from .base import ORMModel
-
-
-# --- Вложенные DTO ---
 
 
 class BattleTeamBase(ORMModel):
     team_index: int
-    name: str
+    name: Optional[str] = None
 
 
 class BattleTeamCreate(BattleTeamBase):
-    is_winner: bool = False
+    is_winner: Optional[bool] = None
 
 
 class BattleTeamRead(BattleTeamBase):
     id: int
     battle_id: int
-    is_winner: bool
+    is_winner: Optional[bool] = None
 
 
 class WeaponStatsItem(ORMModel):
@@ -35,15 +34,17 @@ class WeaponStatsItem(ORMModel):
 
 class PlayerBattleStatsBase(ORMModel):
     player_id: int
-    team_id: int
-    kills: int
-    deaths: int
-    assists: int
-    damage_dealt: int
-    damage_taken: int
-    score: int
-    headshots: int
-    result: int  # -1, 0, 1
+    team_id: Optional[int] = None
+
+    kills: int = 0
+    deaths: int = 0
+    assists: int = 0
+    damage_dealt: int = 0
+    damage_taken: int = 0
+    score: int = 0
+    headshots: int = 0
+
+    result: Optional[int] = None  # -1, 0, 1
     joined_at: Optional[datetime] = None
     left_at: Optional[datetime] = None
 
@@ -55,22 +56,19 @@ class PlayerBattleStatsCreate(PlayerBattleStatsBase):
 class PlayerBattleStatsRead(PlayerBattleStatsBase):
     id: int
     battle_id: int
-    weapon_stats: List[WeaponStatsItem] = []
-
-
-# --- Бой ---
+    weapon_stats: List[WeaponStatsItem] = Field(default_factory=list)
 
 
 class BattleBase(ORMModel):
-    map_id: int
-    mode_id: int
+    map_id: Optional[int] = None
+    mode_id: Optional[int] = None
     is_ranked: bool = False
     started_at: Optional[datetime] = None
     external_match_id: Optional[str] = None
 
 
 class BattleCreate(BattleBase):
-    """Создание боя. Команды и участники можно добавлять позже отдельными вызовами."""
+    """Создание боя."""
     pass
 
 
@@ -79,19 +77,19 @@ class BattleRead(BattleBase):
     created_at: datetime
     ended_at: Optional[datetime] = None
 
-    teams: List[BattleTeamRead] = []
-    players_stats: List[PlayerBattleStatsRead] = []
+    teams: List[BattleTeamRead] = Field(default_factory=list)
+    player_stats: List[PlayerBattleStatsRead] = Field(default_factory=list)
 
 
 class BattleListItem(ORMModel):
     id: int
-    map_id: int
-    mode_id: int
+    map_id: Optional[int] = None
+    mode_id: Optional[int] = None
     is_ranked: bool
-    started_at: Optional[datetime]
-    ended_at: Optional[datetime]
+    started_at: Optional[datetime] = None
+    ended_at: Optional[datetime] = None
     created_at: datetime
 
 
 class BattleFinishRequest(ORMModel):
-    ended_at: Optional[datetime] = None  # если не указано — возьмём now() на уровне сервиса
+    ended_at: Optional[datetime] = None

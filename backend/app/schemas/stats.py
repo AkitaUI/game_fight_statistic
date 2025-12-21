@@ -8,7 +8,6 @@ from .base import ORMModel
 
 
 class PlayerStatsFilter(ORMModel):
-    """Фильтры для выборки статистики игрока."""
     date_from: Optional[datetime] = None
     date_to: Optional[datetime] = None
     map_ids: Optional[List[int]] = None
@@ -22,6 +21,8 @@ class MapStatsItem(ORMModel):
     battles: int
     wins: int
     losses: int
+    draws: int = 0
+
     win_rate: float
     avg_kills: float
     avg_deaths: float
@@ -31,9 +32,13 @@ class MapStatsItem(ORMModel):
 class WeaponStatsItem(ORMModel):
     weapon_id: int
     weapon_name: str
+
+    shots_fired: int = 0
+    hits: int = 0
+
     kills: int
     headshots: int
-    accuracy: float  # hits / shots_fired
+    accuracy: float
     usage_count: int
 
 

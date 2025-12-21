@@ -1,13 +1,10 @@
 # app/schemas/games.py
 from __future__ import annotations
 
-from pydantic import BaseModel
+from .base import ORMModel
 
 
-class GameRead(BaseModel):
+class GameRead(ORMModel):
     id: int
     slug: str
     name: str
-
-    class Config:
-        orm_mode = True

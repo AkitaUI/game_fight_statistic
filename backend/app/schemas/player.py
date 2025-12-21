@@ -17,12 +17,13 @@ class PlayerCreate(PlayerBase):
 
 class PlayerRead(PlayerBase):
     id: int
+    game_id: int
     user_id: Optional[int] = None
     created_at: datetime
 
 
 class PlayerListItem(PlayerRead):
-    """Пока совпадает с PlayerRead, но можно упростить при необходимости."""
+    """Пока совпадает с PlayerRead."""
     pass
 
 

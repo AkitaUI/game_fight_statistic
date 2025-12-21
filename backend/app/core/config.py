@@ -1,22 +1,26 @@
 # app/core/config.py
 from __future__ import annotations
 
-import os
-from pydantic import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "")
+    # DB
+    DATABASE_URL: str = ""
 
     # Security
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "_emGtl3MtaE8MsaMZFK2mPLMa_INqlRYgxAkoP8gBqJKwad125XPqF57h8jsVkyBMzf8HGFzcOoOyK15irRl2Q")
-    JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
+    SECRET_KEY: str = "_emGtl3MtaE8MsaMZFK2mPLMa_INqlRYgxAkoP8gBqJKwad125XPqF57h8jsVkyBMzf8HGFzcOoOyK15irRl2Q"
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=True,
+        extra="ignore",
+    )
 
 
 settings = Settings()
 
+# backward-compatible exports (чтобы не падали импорты из старых файлов)
+DATABASE_URL = settings.DATABASE_URL
