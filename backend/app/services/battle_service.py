@@ -14,11 +14,7 @@ from app.core.exceptions import (
 )
 from app.db.repositories.battle_repository import BattleRepository
 from app.db.repositories.player_repository import PlayerRepository
-from app.schemas.battle import (
-    BattleCreate,
-    BattleRead,
-    BattleListItem,
-)
+from app.schemas.battle import BattleCreate, BattleRead, BattleListItem
 
 
 class BattleService:
@@ -27,10 +23,8 @@ class BattleService:
         self.battle_repo = BattleRepository(session)
         self.player_repo = PlayerRepository(session)
 
-    # --- helpers ---
-
     def _ensure_battle_exists(self, game_id: int, battle_id: int):
-        battle = self.battle_repo.with_game(game_id).get_by_id(battle_id)
+        battle = self.battle_repo.get_by_id(battle_id=battle_id, game_id=game_id)
         if battle is None:
             raise BattleNotFoundError(f"Battle with id={battle_id} not found in game_id={game_id}")
         return battle
@@ -43,7 +37,7 @@ class BattleService:
     # --- battle ops ---
 
     def create_battle(self, game_id: int, data: BattleCreate) -> BattleRead:
-        battle = self.battle_repo.with_game(game_id).create_battle(
+        battle = self.battle_repo.create_battle(
             game_id=game_id,
             map_id=data.map_id,
             mode_id=data.mode_id,
@@ -71,7 +65,7 @@ class BattleService:
         offset: int = 0,
         limit: int = 100,
     ) -> List[BattleListItem]:
-        battles = self.battle_repo.with_game(game_id).list_battles(
+        battles = self.battle_repo.list_battles(
             game_id=game_id,
             player_id=player_id,
             map_id=map_id,
@@ -90,13 +84,12 @@ class BattleService:
         battle = self._ensure_battle_exists(game_id, battle_id)
         self._ensure_battle_not_finished(battle)
 
-        player = self.player_repo.with_game(game_id).get_by_id(player_id)
+        player = self.player_repo.get_by_id(player_id=player_id, game_id=game_id)
         if player is None:
             raise PlayerNotFoundError(f"Player with id={player_id} not found in game_id={game_id}")
 
-        # Репозиторий сам проверит, что game_id совпадает (и кинет ValueError)
         try:
-            self.battle_repo.with_game(game_id).add_player_to_battle(battle=battle, player=player, team=None)
+            self.battle_repo.add_player_to_battle(battle=battle, player=player, team=None)
         except ValueError as exc:
             raise InvalidBattleOperationError(str(exc)) from exc
 
@@ -108,7 +101,7 @@ class BattleService:
         battle = self._ensure_battle_exists(game_id, battle_id)
         self._ensure_battle_not_finished(battle)
 
-        self.battle_repo.with_game(game_id).finish_battle(battle, ended_at=ended_at)
+        self.battle_repo.finish_battle(battle, ended_at=ended_at)
         self.session.commit()
         self.session.refresh(battle)
         return BattleRead.from_orm(battle)

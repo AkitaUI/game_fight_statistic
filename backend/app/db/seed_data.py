@@ -8,151 +8,265 @@ from sqlalchemy import text
 from app.db.session import SessionLocal
 
 
+def _has_column(session, table_name: str, column_name: str) -> bool:
+    q = text(
+        """
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = :table
+          AND column_name = :column
+        LIMIT 1
+        """
+    )
+    return session.execute(q, {"table": table_name, "column": column_name}).scalar_one_or_none() is not None
+
+
+def _get_or_create_game(session, slug: str, name: str) -> int:
+    row = session.execute(
+        text("SELECT id FROM games WHERE slug = :slug LIMIT 1"),
+        {"slug": slug},
+    ).mappings().one_or_none()
+
+    if row is not None:
+        return int(row["id"])
+
+    return session.execute(
+        text(
+            """
+            INSERT INTO games (slug, name)
+            VALUES (:slug, :name)
+            RETURNING id
+            """
+        ),
+        {"slug": slug, "name": name},
+    ).scalar_one()
+
+
 def seed_sample_data() -> None:
     """
     Заполняет БД демонстрационными данными.
 
-    NEW (важно для отзыва):
-      - создаём 2 игры
-      - все справочники и игроки привязаны к конкретной игре (game_id)
-      - бои и статистика также привязаны к game_id
+    Цель:
+      - гарантированно заполнить справочники (maps, game_modes, weapons),
+        чтобы Swagger/UI могли создавать battles без game_id=0 и map_id/mode_id=0.
+      - поддержать multi-game, если в таблицах есть колонка game_id,
+        и не падать, если game_id там нет (тогда справочники общие).
     """
-
     session = SessionLocal()
     try:
-        # Если уже есть игры — считаем, что сидирование делали
-        count_games = session.execute(text("SELECT COUNT(*) FROM games")).scalar_one()
-        if count_games and count_games > 0:
-            print("⚠ Sample data seems to be already present (games exist), skipping seeding.")
-            return
-
-        print("▶ Seeding sample data (multi-game)...")
         now = datetime.utcnow()
 
-        # ------------------------------------------------------------------ #
-        # 1) Игры
-        # ------------------------------------------------------------------ #
-        game1_id = session.execute(
-            text(
-                """
-                INSERT INTO games (slug, name)
-                VALUES (:slug, :name)
-                RETURNING id
-                """
-            ),
-            {"slug": "arena", "name": "Arena Fighters"},
-        ).scalar_one()
+        # --- Определяем, есть ли game_id в таблицах справочников/игроков ---
+        maps_has_game = _has_column(session, "maps", "game_id")
+        modes_has_game = _has_column(session, "game_modes", "game_id")
+        weapons_has_game = _has_column(session, "weapons", "game_id")
+        players_has_game = _has_column(session, "players", "game_id")
 
-        game2_id = session.execute(
-            text(
-                """
-                INSERT INTO games (slug, name)
-                VALUES (:slug, :name)
-                RETURNING id
-                """
-            ),
-            {"slug": "space", "name": "Space Skirmish"},
-        ).scalar_one()
+        # --- Скип: считаем, что сид уже сделан, если карты уже существуют ---
+        maps_count = session.execute(text("SELECT COUNT(*) FROM maps")).scalar_one()
+        if maps_count and maps_count > 0:
+            print("⚠ Sample data seems to be already present (maps exist), skipping seeding.")
+            return
 
-        # ------------------------------------------------------------------ #
-        # 2) Справочники по каждой игре (maps, modes, weapons)
-        # ------------------------------------------------------------------ #
+        print("▶ Seeding sample data...")
+
+        # --- 1) Игры (get-or-create) ---
+        # ВАЖНО: у тебя уже есть default (id=1). Мы его не ломаем.
+        default_game_id = _get_or_create_game(session, slug="default", name="Default Game")
+
+        # Вторую игру создаём для multi-game демонстрации
+        arena_game_id = _get_or_create_game(session, slug="arena", name="Arena Fighters")
+        space_game_id = _get_or_create_game(session, slug="space", name="Space Skirmish")
+
+        # Список игр для последующих вставок
+        game_ids = [arena_game_id, space_game_id]
+
+        # --- 2) Справочники (maps, modes, weapons) ---
         maps: dict[tuple[int, str], int] = {}
         modes: dict[tuple[int, str], int] = {}
         weapons: dict[tuple[int, str], int] = {}
 
-        # Карты
-        for gid, items in [
-            (game1_id, [("Dust Arena", "Small symmetric desert-themed arena"), ("Frozen City", "Urban map covered with snow")]),
-            (game2_id, [("Orbital Station", "Zero-gravity corridors"), ("Red Planet Base", "Martian outpost combat zone")]),
-        ]:
-            for name, desc in items:
+        # 2.1 Карты
+        per_game_maps = [
+            (arena_game_id, [("Dust Arena", "Small symmetric desert-themed arena"),
+                             ("Frozen City", "Urban map covered with snow")]),
+            (space_game_id, [("Orbital Station", "Zero-gravity corridors"),
+                             ("Red Planet Base", "Martian outpost combat zone")]),
+        ]
+
+        if maps_has_game:
+            for gid, items in per_game_maps:
+                for name, desc in items:
+                    map_id = session.execute(
+                        text(
+                            """
+                            INSERT INTO maps (game_id, name, description)
+                            VALUES (:game_id, :name, :description)
+                            RETURNING id
+                            """
+                        ),
+                        {"game_id": gid, "name": name, "description": desc},
+                    ).scalar_one()
+                    maps[(gid, name)] = map_id
+        else:
+            # таблица maps без game_id -> общий справочник
+            # вставим только 2 карты, но так, чтобы battles могли ссылаться на них
+            for name, desc in [("Dust Arena", "Small symmetric desert-themed arena"),
+                               ("Frozen City", "Urban map covered with snow")]:
                 map_id = session.execute(
                     text(
                         """
-                        INSERT INTO maps (game_id, name, description)
-                        VALUES (:game_id, :name, :description)
+                        INSERT INTO maps (name, description)
+                        VALUES (:name, :description)
                         RETURNING id
                         """
                     ),
-                    {"game_id": gid, "name": name, "description": desc},
+                    {"name": name, "description": desc},
                 ).scalar_one()
-                maps[(gid, name)] = map_id
+                # будем считать, что оба game используют эти id
+                for gid in game_ids:
+                    maps[(gid, name)] = map_id
 
-        # Режимы
-        for gid, items in [
-            (game1_id, [("TDM", "Team Deathmatch", "Two teams, most kills win"), ("DOM", "Domination", "Capture and hold control points")]),
-            (game2_id, [("CTF", "Capture The Flag", "Steal enemy flag and return"), ("BR", "Battle Royale", "Last player/team standing")]),
-        ]:
-            for code, name, desc in items:
+        # 2.2 Режимы
+        per_game_modes = [
+            (arena_game_id, [("TDM", "Team Deathmatch", "Two teams, most kills win"),
+                             ("DOM", "Domination", "Capture and hold control points")]),
+            (space_game_id, [("CTF", "Capture The Flag", "Steal enemy flag and return"),
+                             ("BR", "Battle Royale", "Last player/team standing")]),
+        ]
+
+        if modes_has_game:
+            for gid, items in per_game_modes:
+                for code, name, desc in items:
+                    mode_id = session.execute(
+                        text(
+                            """
+                            INSERT INTO game_modes (game_id, code, name, description)
+                            VALUES (:game_id, :code, :name, :description)
+                            RETURNING id
+                            """
+                        ),
+                        {"game_id": gid, "code": code, "name": name, "description": desc},
+                    ).scalar_one()
+                    modes[(gid, code)] = mode_id
+        else:
+            # общий справочник
+            for code, name, desc in [("TDM", "Team Deathmatch", "Two teams, most kills win"),
+                                     ("DOM", "Domination", "Capture and hold control points")]:
                 mode_id = session.execute(
                     text(
                         """
-                        INSERT INTO game_modes (game_id, code, name, description)
-                        VALUES (:game_id, :code, :name, :description)
+                        INSERT INTO game_modes (code, name, description)
+                        VALUES (:code, :name, :description)
                         RETURNING id
                         """
                     ),
-                    {"game_id": gid, "code": code, "name": name, "description": desc},
+                    {"code": code, "name": name, "description": desc},
                 ).scalar_one()
-                modes[(gid, code)] = mode_id
+                for gid in game_ids:
+                    modes[(gid, code)] = mode_id
 
-        # Оружие
-        for gid, items in [
-            (game1_id, [("AK-97", "Rifle"), ("Desert Hawk", "Pistol"), ("Thunderbolt", "Sniper")]),
-            (game2_id, [("Plasma Carbine", "Energy Rifle"), ("Ion Pistol", "Energy Pistol"), ("Railgun", "Sniper")]),
-        ]:
-            for name, category in items:
+        # 2.3 Оружие
+        per_game_weapons = [
+            (arena_game_id, [("AK-97", "Rifle"), ("Desert Hawk", "Pistol"), ("Thunderbolt", "Sniper")]),
+            (space_game_id, [("Plasma Carbine", "Energy Rifle"), ("Ion Pistol", "Energy Pistol"), ("Railgun", "Sniper")]),
+        ]
+
+        if weapons_has_game:
+            for gid, items in per_game_weapons:
+                for name, category in items:
+                    weapon_id = session.execute(
+                        text(
+                            """
+                            INSERT INTO weapons (game_id, name, category)
+                            VALUES (:game_id, :name, :category)
+                            RETURNING id
+                            """
+                        ),
+                        {"game_id": gid, "name": name, "category": category},
+                    ).scalar_one()
+                    weapons[(gid, name)] = weapon_id
+        else:
+            # общий справочник
+            for name, category in [("AK-97", "Rifle"), ("Desert Hawk", "Pistol"), ("Thunderbolt", "Sniper")]:
                 weapon_id = session.execute(
                     text(
                         """
-                        INSERT INTO weapons (game_id, name, category)
-                        VALUES (:game_id, :name, :category)
+                        INSERT INTO weapons (name, category)
+                        VALUES (:name, :category)
                         RETURNING id
                         """
                     ),
-                    {"game_id": gid, "name": name, "category": category},
+                    {"name": name, "category": category},
                 ).scalar_one()
-                weapons[(gid, name)] = weapon_id
+                for gid in game_ids:
+                    weapons[(gid, name)] = weapon_id
 
-        # ------------------------------------------------------------------ #
-        # 3) Игроки (по игре)
-        # ------------------------------------------------------------------ #
+        # --- 3) Игроки ---
         players: dict[tuple[int, str], int] = {}
 
-        for gid, nicks in [
-            (game1_id, ["AlphaWolf", "BravoFox", "CharlieEagle"]),
-            (game2_id, ["NovaPilot", "CosmoRider", "StarHunter"]),
-        ]:
-            for nickname in nicks:
+        per_game_players = [
+            (arena_game_id, ["AlphaWolf", "BravoFox", "CharlieEagle"]),
+            (space_game_id, ["NovaPilot", "CosmoRider", "StarHunter"]),
+        ]
+
+        if players_has_game:
+            for gid, nicks in per_game_players:
+                for nickname in nicks:
+                    player_id = session.execute(
+                        text(
+                            """
+                            INSERT INTO players (game_id, user_id, nickname, created_at)
+                            VALUES (:game_id, NULL, :nickname, :created_at)
+                            RETURNING id
+                            """
+                        ),
+                        {"game_id": gid, "nickname": nickname, "created_at": now},
+                    ).scalar_one()
+                    players[(gid, nickname)] = player_id
+        else:
+            # players без game_id -> общий пул игроков
+            for nickname in ["AlphaWolf", "BravoFox", "CharlieEagle", "NovaPilot", "CosmoRider", "StarHunter"]:
                 player_id = session.execute(
                     text(
                         """
-                        INSERT INTO players (game_id, user_id, nickname, created_at)
-                        VALUES (:game_id, NULL, :nickname, :created_at)
+                        INSERT INTO players (user_id, nickname, created_at)
+                        VALUES (NULL, :nickname, :created_at)
                         RETURNING id
                         """
                     ),
-                    {"game_id": gid, "nickname": nickname, "created_at": now},
+                    {"nickname": nickname, "created_at": now},
                 ).scalar_one()
-                players[(gid, nickname)] = player_id
+                # распределим по играм логически (для battles)
+                # первые 3 — arena, вторые 3 — space
+                if nickname in ["AlphaWolf", "BravoFox", "CharlieEagle"]:
+                    players[(arena_game_id, nickname)] = player_id
+                else:
+                    players[(space_game_id, nickname)] = player_id
 
-        # ------------------------------------------------------------------ #
-        # 4) Бои (по игре)
-        # ------------------------------------------------------------------ #
+        # --- 4) Бои (ВНИМАНИЕ: battles всегда с game_id!) ---
         battles: list[tuple[int, int]] = []  # (game_id, battle_id)
 
         battle_specs = [
-            # game_id, map_name, mode_code, is_ranked, days_ago
-            (game1_id, "Dust Arena", "TDM", True, 1),
-            (game1_id, "Frozen City", "DOM", False, 2),
-            (game2_id, "Orbital Station", "CTF", True, 1),
-            (game2_id, "Red Planet Base", "BR", False, 3),
+            (arena_game_id, "Dust Arena", "TDM", True, 1),
+            (arena_game_id, "Frozen City", "DOM", False, 2),
+            (space_game_id, "Orbital Station", "CTF", True, 1),
+            (space_game_id, "Red Planet Base", "BR", False, 3),
         ]
+
+        # Если справочники общие (без game_id), то у space нет CTF/BR и orbital/red planet.
+        # В этом случае создадим только 2 боя в arena, чтобы сид не падал.
+        if (not maps_has_game) or (not modes_has_game):
+            battle_specs = [
+                (arena_game_id, "Dust Arena", "TDM", True, 1),
+                (arena_game_id, "Frozen City", "DOM", False, 2),
+            ]
 
         for gid, map_name, mode_code, is_ranked, days_ago in battle_specs:
             started_at = now - timedelta(days=days_ago, hours=1)
             ended_at = started_at + timedelta(minutes=10)
+
             battle_id = session.execute(
                 text(
                     """
@@ -186,13 +300,11 @@ def seed_sample_data() -> None:
                     "is_ranked": is_ranked,
                 },
             ).scalar_one()
+
             battles.append((gid, battle_id))
 
-        # ------------------------------------------------------------------ #
-        # 5) Команды в боях
-        # ------------------------------------------------------------------ #
+        # --- 5) Команды в боях ---
         teams_per_battle: dict[int, dict[str, int]] = {}
-
         for gid, battle_id in battles:
             teams_per_battle[battle_id] = {}
             for team_index, (name, is_winner) in enumerate([("Blue", True), ("Red", False)], start=1):
@@ -213,16 +325,14 @@ def seed_sample_data() -> None:
                 ).scalar_one()
                 teams_per_battle[battle_id][name] = team_id
 
-        # ------------------------------------------------------------------ #
-        # 6) Статистика игроков в боях (и game_id тоже!)
-        # ------------------------------------------------------------------ #
+        # --- 6) Статистика игроков в боях (player_battle_stats с game_id) ---
         player_battle_stats_ids: list[tuple[int, int]] = []  # (game_id, pbs_id)
 
-        # Пример: для каждого боя 2 игрока этой же игры
-        for (gid, battle_id) in battles:
-            # берём 2 любых игрока этой игры
-            nick1 = next(n for (g, n) in players.keys() if g == gid)
-            nick2 = [n for (g, n) in players.keys() if g == gid and n != nick1][0]
+        for gid, battle_id in battles:
+            # возьмём 2 игрока данной игры
+            game_nicks = [n for (g, n) in players.keys() if g == gid]
+            nick1 = game_nicks[0]
+            nick2 = game_nicks[1]
 
             participants = [
                 (nick1, "Blue", 20, 10, 5, 2500),
@@ -294,9 +404,7 @@ def seed_sample_data() -> None:
 
                 player_battle_stats_ids.append((gid, stats_id))
 
-        # ------------------------------------------------------------------ #
-        # 7) Статистика по оружию (только оружие той же игры!)
-        # ------------------------------------------------------------------ #
+        # --- 7) weapon_stats (оружие той же игры, если оно per-game; иначе — общий) ---
         for gid, stats_id in player_battle_stats_ids:
             # выберем первое оружие данной игры
             weapon_name = next(name for (g, name) in weapons.keys() if g == gid)
@@ -334,7 +442,7 @@ def seed_sample_data() -> None:
             )
 
         session.commit()
-        print("✅ Sample data inserted successfully (multi-game).")
+        print("✅ Sample data inserted successfully.")
 
     except Exception as exc:  # noqa: BLE001
         session.rollback()

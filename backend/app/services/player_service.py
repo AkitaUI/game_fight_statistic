@@ -25,16 +25,18 @@ class PlayerService:
     # --- CRUD по игрокам ---
 
     def create_player(self, game_id: int, data: PlayerCreate) -> PlayerRead:
-        # nickname уникален в рамках game_id
-        existing = self.player_repo.with_game(game_id).get_by_nickname(data.nickname)
+        existing = self.player_repo.get_by_nickname(data.nickname, game_id=game_id)
         if existing is not None:
-            raise PlayerAlreadyExistsError(
-                f"Player with nickname '{data.nickname}' already exists in game_id={game_id}"
-            )
+            raise PlayerAlreadyExistsError(f"Player with nickname '{data.nickname}' already exists")
 
-        player = self.player_repo.with_game(game_id).create(
+        user_id = data.user_id
+        if user_id == 0:
+            user_id = None
+
+        player = self.player_repo.create(
             nickname=data.nickname,
-            user_id=data.user_id,
+            user_id=user_id,
+            game_id=game_id,
         )
         self.session.commit()
         self.session.refresh(player)
