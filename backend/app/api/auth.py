@@ -8,10 +8,13 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.security import hash_password, verify_password, create_access_token
 from app.db.session import get_db
-from app.db.models.user import User, UserRole
+from app.db.models import User  # UserRole импортируем отдельно ниже
 from app.schemas.auth import Token, UserRegister, UserPublic
 
-router = APIRouter(prefix="/api/auth", tags=["auth"])
+# если UserRole у тебя объявлен в app/db/models/user.py — импортируй так:
+from app.db.models.user import UserRole  # noqa
+
+router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/register", response_model=UserPublic, status_code=status.HTTP_201_CREATED)
