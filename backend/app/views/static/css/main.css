@@ -343,3 +343,128 @@ input[type="checkbox"] {
         padding: 14px 14px 16px;
     }
 }
+
+/* --- Added for auth + games UI --- */
+
+.topbar-right .input,
+.game-selector .input,
+#gameSelect {
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(148, 163, 184, 0.4);
+    background: rgba(15, 23, 42, 0.8);
+    color: var(--text);
+    padding: 6px 10px;
+    font-size: 0.85rem;
+    outline: none;
+}
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    color: #e5f0ff;
+    background: rgba(59, 130, 246, 0.18);
+    border: 1px solid rgba(59, 130, 246, 0.55);
+}
+
+.alert {
+    border-radius: 12px;
+    border: 1px solid rgba(239, 68, 68, 0.55);
+    background: rgba(239, 68, 68, 0.12);
+    padding: 10px 12px;
+    color: #ffe3e3;
+    font-size: 0.9rem;
+}
+
+.btn-danger {
+    border-color: rgba(239, 68, 68, 0.8);
+    background: linear-gradient(90deg, #b91c1c, #ef4444);
+}
+
+.btn-danger:hover {
+    background: linear-gradient(90deg, #991b1b, #dc2626);
+    box-shadow: 0 8px 24px rgba(239, 68, 68, 0.35);
+}
+
+.btn-sm {
+    padding: 4px 10px;
+    font-size: 0.78rem;
+}
+
+/* Modal inputs match theme (base.html modal is white background) */
+#authModal input.input {
+    border: 1px solid rgba(148, 163, 184, 0.7);
+    background: #fff;
+    color: #111827;
+}
+#authModal .btn {
+    border-color: rgba(59, 130, 246, 0.9);
+}
+#authModal .btn-secondary {
+    background: rgba(15, 23, 42, 0.08);
+    color: #111827;
+}
+/* --- Added for auth + games UI --- */
+
+.topbar-right .input,
+.game-selector .input,
+#gameSelect {
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(148, 163, 184, 0.4);
+    background: rgba(15, 23, 42, 0.8);
+    color: var(--text);
+    padding: 6px 10px;
+    font-size: 0.85rem;
+    outline: none;
+}
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    color: #e5f0ff;
+    background: rgba(59, 130, 246, 0.18);
+    border: 1px solid rgba(59, 130, 246, 0.55);
+}
+
+.alert {
+    border-radius: 12px;
+    border: 1px solid rgba(239, 68, 68, 0.55);
+    background: rgba(239, 68, 68, 0.12);
+    padding: 10px 12px;
+    color: #ffe3e3;
+    font-size: 0.9rem;
+}
+
+.btn-danger {
+    border-color: rgba(239, 68, 68, 0.8);
+    background: linear-gradient(90deg, #b91c1c, #ef4444);
+}
+
+.btn-danger:hover {
+    background: linear-gradient(90deg, #991b1b, #dc2626);
+    box-shadow: 0 8px 24px rgba(239, 68, 68, 0.35);
+}
+
+.btn-sm {
+    padding: 4px 10px;
+    font-size: 0.78rem;
+}
+
+/* Modal inputs match theme (base.html modal is white background) */
+#authModal input.input {
+    border: 1px solid rgba(148, 163, 184, 0.7);
+    background: #fff;
+    color: #111827;
+}
+#authModal .btn {
+    border-color: rgba(59, 130, 246, 0.9);
+}
+#authModal .btn-secondary {
+    background: rgba(15, 23, 42, 0.08);
+    color: #111827;
+}
