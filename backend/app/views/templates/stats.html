@@ -4,8 +4,16 @@
 <section class="card">
     <div class="card-header">
         <h1>Player statistics</h1>
+        <div class="card-actions">
+            <span id="selected-game-badge" class="badge" style="display:none;"></span>
+        </div>
     </div>
+
     <div class="card-body">
+        <div id="game-required-warning" class="alert" style="display:none; margin-bottom: 12px;">
+            Please select a game in the top-right selector before loading stats.
+        </div>
+
         <div class="filters">
             <label>
                 Player ID:
@@ -32,6 +40,7 @@
                     <th>Battles</th>
                     <th>Wins</th>
                     <th>Losses</th>
+                    <th>Draws</th>
                     <th>Win rate</th>
                     <th>Avg. kills</th>
                     <th>Avg. deaths</th>

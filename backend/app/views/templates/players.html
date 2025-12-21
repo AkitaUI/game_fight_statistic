@@ -5,11 +5,16 @@
     <div class="card-header">
         <h1>Players</h1>
         <div class="card-actions">
+            <span id="selected-game-badge" class="badge" style="display:none;"></span>
             <button id="reload-players-btn" class="btn">Reload</button>
         </div>
     </div>
 
     <div class="card-body">
+        <div id="game-required-warning" class="alert" style="display:none; margin-bottom: 12px;">
+            Please select a game in the top-right selector to load players.
+        </div>
+
         <div class="filters">
             <label>
                 Search:

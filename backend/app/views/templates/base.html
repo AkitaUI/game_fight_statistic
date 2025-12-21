@@ -15,6 +15,7 @@
             <span class="logo-main">Game</span>
             <span class="logo-sub">Stats</span>
         </div>
+
         <nav class="main-nav">
             <a href="{{ request.url_for('index') }}"
                class="nav-link {% if request.url.path == '/' %}nav-link-active{% endif %}">
@@ -38,6 +39,26 @@
                 API docs
             </a>
         </nav>
+
+        <div class="topbar-right" style="display:flex; gap:12px; align-items:center;">
+            {% if enable_game_selector %}
+            <div class="game-selector" style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:0.9rem; opacity:0.85;">Game:</span>
+                <select id="gameSelect" class="input" style="min-width: 180px;">
+                    <option value="">Loading…</option>
+                </select>
+            </div>
+            {% endif %}
+
+            {% if enable_auth_ui %}
+            <div class="auth-area" style="display:flex; align-items:center; gap:8px;">
+                <span id="authStatus" style="font-size:0.9rem; opacity:0.9;"></span>
+                <button id="btnLogin" class="btn" type="button">Login</button>
+                <button id="btnRegister" class="btn btn-secondary" type="button">Register</button>
+                <button id="btnLogout" class="btn btn-danger" type="button" style="display:none;">Logout</button>
+            </div>
+            {% endif %}
+        </div>
     </div>
 </header>
 
@@ -47,6 +68,9 @@
         <section class="card">
             <h1>Welcome to Game Stats</h1>
             <p>Select a section in the top menu to start exploring players, battles and statistics.</p>
+            <p style="opacity:0.8;">
+                Tip: choose a game in the top-right selector. All API calls from UI should use the selected game.
+            </p>
         </section>
         {% endblock %}
     </div>
@@ -62,6 +86,50 @@
         </span>
     </div>
 </footer>
+
+<!-- AUTH MODAL -->
+<div id="authModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:9999;">
+    <div style="max-width:420px; margin:8vh auto; background:#fff; border-radius:12px; padding:18px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+            <h3 id="authModalTitle" style="margin:0;">Login</h3>
+            <button id="authModalClose" type="button" class="btn btn-secondary">X</button>
+        </div>
+
+        <div style="margin-top:12px; display:flex; flex-direction:column; gap:10px;">
+            <label style="display:flex; flex-direction:column; gap:6px;">
+                <span>Username</span>
+                <input id="authUsername" class="input" type="text" autocomplete="username" />
+            </label>
+
+            <label style="display:flex; flex-direction:column; gap:6px;">
+                <span>Password</span>
+                <input id="authPassword" class="input" type="password" autocomplete="current-password" />
+            </label>
+
+            <div id="authModalHint" style="font-size:0.9rem; opacity:0.85;"></div>
+
+            <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:6px;">
+                <button id="authSubmit" type="button" class="btn">Submit</button>
+            </div>
+
+            <div id="authError" style="display:none; color:#b00020; font-size:0.9rem;"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+  // Базовые константы для JS (main.js будет использовать)
+  window.APP_CONFIG = {
+    apiBase: "/api",
+    gamesEndpoint: "/api/games",
+    authRegisterEndpoint: "/api/auth/register",
+    authTokenEndpoint: "/api/auth/token",
+    storageKeys: {
+      token: "access_token",
+      gameId: "selected_game_id"
+    }
+  };
+</script>
 
 <script src="{{ url_for('static', path='js/main.js') }}"></script>
 {% block extra_js %}{% endblock %}
