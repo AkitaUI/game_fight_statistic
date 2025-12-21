@@ -6,13 +6,11 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.security import hash_password, verify_password, create_access_token
+from app.core.security import create_access_token, hash_password, verify_password
+from app.db.models import User
+from app.db.models.user import UserRole
 from app.db.session import get_db
-from app.db.models import User  # UserRole импортируем отдельно ниже
-from app.schemas.auth import Token, UserRegister, UserPublic
-
-# если UserRole у тебя объявлен в app/db/models/user.py — импортируй так:
-from app.db.models.user import UserRole  # noqa
+from app.schemas.auth import Token, UserPublic, UserRegister
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

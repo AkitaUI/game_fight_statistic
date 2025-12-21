@@ -10,13 +10,13 @@ from sqlalchemy.orm import Session
 from app.core.exceptions import PlayerNotFoundError
 from app.db.session import get_db
 from app.schemas.player import PlayerStatsSummary
-from app.schemas.stats import PlayerStatsFilter, MapStatsItem, WeaponStatsItem
+from app.schemas.stats import MapStatsItem, PlayerStatsFilter, WeaponStatsItem
 from app.services.stats_service import StatsService
 
 router = APIRouter(prefix="/games/{game_id}/stats", tags=["stats"])
 
 
-@router.get("/players/{player_id}/summary", response_model=PlayerStatsSummary)
+@router.get("/players/{player_id}", response_model=PlayerStatsSummary)
 def get_player_summary(
     game_id: int,
     player_id: int,

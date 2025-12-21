@@ -6,10 +6,10 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import PlayerNotFoundError, PlayerAlreadyExistsError
+from app.core.exceptions import PlayerAlreadyExistsError, PlayerNotFoundError
 from app.db.session import get_db
 from app.schemas.base import PagedResponse
-from app.schemas.player import PlayerCreate, PlayerRead, PlayerListItem, PlayerWithStatsSummary
+from app.schemas.player import PlayerCreate, PlayerListItem, PlayerRead, PlayerWithStatsSummary
 from app.schemas.stats import PlayerStatsFilter
 from app.services.player_service import PlayerService
 
@@ -77,7 +77,6 @@ def get_player_summary(
     ranked_only: bool | None = Query(None),
     session: Session = Depends(get_db),
 ):
-    # Сейчас фильтры не применяются в репозитории (мы их убрали, чтобы код работал).
     filters = PlayerStatsFilter(
         date_from=None,
         date_to=None,

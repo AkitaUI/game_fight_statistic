@@ -2,25 +2,20 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional, List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import (
-    BattleNotFoundError,
     BattleAlreadyFinishedError,
+    BattleNotFoundError,
     InvalidBattleOperationError,
     PlayerNotFoundError,
 )
 from app.db.session import get_db
 from app.schemas.base import PagedResponse
-from app.schemas.battle import (
-    BattleCreate,
-    BattleRead,
-    BattleListItem,
-    BattleFinishRequest,
-)
+from app.schemas.battle import BattleCreate, BattleFinishRequest, BattleListItem, BattleRead
 from app.services.battle_service import BattleService
 
 router = APIRouter(prefix="/games/{game_id}/battles", tags=["battles"])
