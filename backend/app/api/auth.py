@@ -23,7 +23,6 @@ def register(payload: UserRegister, db: Session = Depends(get_db)) -> User:
     
     pwd = payload.password
     print("PASSWORD TYPE:", type(pwd))
-    print("PASSWORD REPR:", repr(pwd))
     print("PASSWORD len(chars):", len(pwd))
     print("PASSWORD len(bytes):", len(pwd.encode("utf-8")))
 
@@ -32,11 +31,14 @@ def register(payload: UserRegister, db: Session = Depends(get_db)) -> User:
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+    password_hash = hash_password(payload.password)
+
     user = User(
         username=payload.username,
-        password_hash=hash_password(payload.password),
+        password_hash=password_hash,
         role=UserRole.player,
     )
+
     db.add(user)
     db.commit()
     db.refresh(user)

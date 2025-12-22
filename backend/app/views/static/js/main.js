@@ -1,4 +1,10 @@
+/* eslint-disable no-alert */
 window.GameStatsUI = (function () {
+  "use strict";
+
+  // -------------------------
+  // Config
+  // -------------------------
   const CFG = window.APP_CONFIG || {
     apiBase: "/api",
     gamesEndpoint: "/api/games",
@@ -8,40 +14,17 @@ window.GameStatsUI = (function () {
   };
 
   // -------------------------
-  // Storage helpers
-  // -------------------------
-  function getToken() {
-    return localStorage.getItem(CFG.storageKeys.token) || "";
-  }
-  function setToken(token) {
-    if (token) localStorage.setItem(CFG.storageKeys.token, token);
-    else localStorage.removeItem(CFG.storageKeys.token);
-  }
-  function getSelectedGameId() {
-    const v = localStorage.getItem(CFG.storageKeys.gameId);
-    if (!v) return null;
-    const n = parseInt(v, 10);
-    return Number.isFinite(n) ? n : null;
-  }
-  function setSelectedGameId(gameId) {
-    if (gameId === null || gameId === undefined || gameId === "") {
-      localStorage.removeItem(CFG.storageKeys.gameId);
-      return;
-    }
-    localStorage.setItem(CFG.storageKeys.gameId, String(gameId));
-  }
-
-  // -------------------------
-  // UI helpers
+  // Utils
   // -------------------------
   function $(sel) {
     return document.querySelector(sel);
   }
 
-  function show(el) {
+  function show(el, display = "block") {
     if (!el) return;
-    el.style.display = "";
+    el.style.display = display;
   }
+
   function hide(el) {
     if (!el) return;
     el.style.display = "none";
@@ -52,6 +35,91 @@ window.GameStatsUI = (function () {
     el.textContent = text ?? "";
   }
 
+  function safeJsonParse(text) {
+    try {
+      return JSON.parse(text);
+    } catch {
+      return null;
+    }
+  }
+
+  // -------------------------
+  // Storage
+  // -------------------------
+  function getToken() {
+    return localStorage.getItem(CFG.storageKeys.token) || "";
+  }
+
+  function setToken(token) {
+    if (token) localStorage.setItem(CFG.storageKeys.token, token);
+    else localStorage.removeItem(CFG.storageKeys.token);
+  }
+
+  function getSelectedGameId() {
+    const v = localStorage.getItem(CFG.storageKeys.gameId);
+    if (!v) return null;
+    const n = parseInt(v, 10);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function setSelectedGameId(gameId) {
+    if (gameId === null || gameId === undefined || gameId === "") {
+      localStorage.removeItem(CFG.storageKeys.gameId);
+      return;
+    }
+    localStorage.setItem(CFG.storageKeys.gameId, String(gameId));
+  }
+
+  // -------------------------
+  // HTTP
+  // -------------------------
+  async function apiFetch(url, options = {}) {
+    const headers = new Headers(options.headers || {});
+    headers.set("Accept", "application/json");
+
+    const token = getToken();
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+
+    // JSON for non-FormData bodies
+    if (options.body && !(options.body instanceof FormData)) {
+      if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+    }
+
+    const resp = await fetch(url, {
+      ...options,
+      headers,
+      cache: "no-store", // important for debugging
+    });
+
+    return resp;
+  }
+
+  async function apiJson(url, options = {}) {
+    const resp = await apiFetch(url, options);
+
+    // Read text first (so we can show meaningful error even for non-json)
+    const text = await resp.text();
+    const maybeJson = safeJsonParse(text);
+
+    if (!resp.ok) {
+      const detail =
+        (maybeJson && (maybeJson.detail || maybeJson.message)) ? (maybeJson.detail || maybeJson.message) : text;
+      throw new Error(`Request failed (${resp.status})${detail ? `: ${String(detail).slice(0, 300)}` : ""}`);
+    }
+
+    if (resp.status === 204) return null;
+    return maybeJson ?? text;
+  }
+
+  function gameScoped(pathTemplate) {
+    const gameId = getSelectedGameId();
+    if (!gameId) return null;
+    return pathTemplate.replace("{gameId}", String(gameId));
+  }
+
+  // -------------------------
+  // UI helpers (badge/warn)
+  // -------------------------
   function setBadge(game) {
     const badge = $("#selected-game-badge");
     if (!badge) return;
@@ -62,15 +130,16 @@ window.GameStatsUI = (function () {
       return;
     }
     badge.textContent = `Game: ${game.name}`;
-    show(badge);
+    show(badge, "inline-flex");
   }
 
   function showGameRequiredWarningIfNeeded() {
     const warn = $("#game-required-warning");
     if (!warn) return false;
+
     const gameId = getSelectedGameId();
     if (!gameId) {
-      show(warn);
+      show(warn, "block");
       return true;
     }
     hide(warn);
@@ -78,94 +147,10 @@ window.GameStatsUI = (function () {
   }
 
   // -------------------------
-  // HTTP helpers
+  // Auth
   // -------------------------
-  async function apiFetch(path, options = {}) {
-    const url = path.startsWith("http") ? path : path;
-    const headers = new Headers(options.headers || {});
-    headers.set("Accept", "application/json");
-
-    const token = getToken();
-    if (token) headers.set("Authorization", `Bearer ${token}`);
-
-    // Если есть body и это не FormData — ставим JSON
-    if (options.body && !(options.body instanceof FormData)) {
-      if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
-    }
-
-    const resp = await fetch(url, { ...options, headers });
-    return resp;
-  }
-
-  async function apiJson(path, options = {}) {
-    const resp = await apiFetch(path, options);
-    if (!resp.ok) {
-      let details = "";
-      try {
-        const data = await resp.json();
-        details = data?.detail ? `: ${data.detail}` : "";
-      } catch (_) {
-        // ignore
-      }
-      throw new Error(`Request failed (${resp.status})${details}`);
-    }
-    if (resp.status === 204) return null;
-    return await resp.json();
-  }
-
-  function gameScoped(pathTemplate) {
-    // pathTemplate пример: `/api/games/{gameId}/players`
-    const gameId = getSelectedGameId();
-    if (!gameId) return null;
-    return pathTemplate.replace("{gameId}", String(gameId));
-  }
-
-  // -------------------------
-  // Auth UI
-  // -------------------------
-function openAuthModal(mode /* 'login' | 'register' */) {
-    const modal = $("#authModal");
-    const title = $("#authModalTitle");
-    const hint = $("#authModalHint");
-    const err = $("#authError");
-    const submit = $("#authSubmit");
-
-    if (!modal || !title || !hint || !submit) return;
-
-    if (err) { err.style.display = "none"; err.textContent = ""; }
-
-    const u = $("#authUsername");
-    const p = $("#authPassword");
-    if (u) u.value = "";
-    if (p) p.value = "";
-
-    if (mode === "register") {
-        title.textContent = "Register";
-        hint.textContent = "Create a new account (username + password).";
-        submit.dataset.mode = "register";
-    } else {
-        title.textContent = "Login";
-        hint.textContent = "Enter your username and password to get access token.";
-        submit.dataset.mode = "login";
-    }
-
-    // ✅ ЖЕЛЕЗОБЕТОННО показываем и поднимаем наверх
-    modal.style.display = "block";
-    modal.style.visibility = "visible";
-    modal.style.opacity = "1";
-    modal.style.pointerEvents = "auto";
-    modal.style.zIndex = "2147483647";
-}
-
-function closeAuthModal() {
-    const modal = $("#authModal");
-    if (!modal) return;
-    modal.style.display = "none";
-}
-
   async function doRegister(username, password) {
     const payload = { username, password };
-    // POST /api/auth/register
     return await apiJson(CFG.authRegisterEndpoint, {
       method: "POST",
       body: JSON.stringify(payload),
@@ -173,26 +158,84 @@ function closeAuthModal() {
   }
 
   async function doLogin(username, password) {
-    // OAuth2PasswordRequestForm: x-www-form-urlencoded
     const form = new URLSearchParams();
     form.set("username", username);
     form.set("password", password);
 
     const resp = await fetch(CFG.authTokenEndpoint, {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json" },
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Accept: "application/json",
+      },
       body: form.toString(),
+      cache: "no-store",
     });
 
+    const text = await resp.text();
+    const data = safeJsonParse(text);
+
     if (!resp.ok) {
-      let details = "";
-      try {
-        const data = await resp.json();
-        details = data?.detail ? `: ${data.detail}` : "";
-      } catch (_) {}
-      throw new Error(`Login failed (${resp.status})${details}`);
+      const detail = data?.detail || text;
+      throw new Error(`Login failed (${resp.status})${detail ? `: ${String(detail).slice(0, 300)}` : ""}`);
     }
-    return await resp.json(); // {access_token, token_type}
+
+    // {access_token, token_type}
+    return data || {};
+  }
+
+  function openAuthModal(mode /* 'login' | 'register' */) {
+    const modal = $("#authModal");
+    const title = $("#authModalTitle");
+    const hint = $("#authModalHint");
+    const err = $("#authError");
+    const submit = $("#authSubmit");
+    const userEl = $("#authUsername");
+    const passEl = $("#authPassword");
+
+    if (!modal || !title || !hint || !err || !submit || !userEl || !passEl) {
+      console.error("[Auth] Modal elements missing", {
+        modal: !!modal,
+        title: !!title,
+        hint: !!hint,
+        err: !!err,
+        submit: !!submit,
+        userEl: !!userEl,
+        passEl: !!passEl,
+      });
+      return;
+    }
+
+    // reset
+    err.textContent = "";
+    hide(err);
+    userEl.value = "";
+    passEl.value = "";
+
+    if (mode === "register") {
+      title.textContent = "Register";
+      hint.textContent = "Create a new account (username + password).";
+      submit.dataset.mode = "register";
+      passEl.autocomplete = "new-password";
+    } else {
+      title.textContent = "Login";
+      hint.textContent = "Enter your username and password to get access token.";
+      submit.dataset.mode = "login";
+      passEl.autocomplete = "current-password";
+    }
+
+    // Explicit display!
+    show(modal, "block");
+    modal.style.pointerEvents = "auto";
+    modal.style.zIndex = "2147483647";
+
+    // Focus UX
+    setTimeout(() => userEl.focus(), 0);
+  }
+
+  function closeAuthModal() {
+    const modal = $("#authModal");
+    if (modal) hide(modal);
   }
 
   function syncAuthButtons() {
@@ -202,17 +245,27 @@ function closeAuthModal() {
     const btnRegister = $("#btnRegister");
     const btnLogout = $("#btnLogout");
 
-    if (!btnLogin || !btnRegister || !btnLogout) return;
+    // If auth UI is disabled on this page - just skip quietly
+    if (!btnLogin && !btnRegister && !btnLogout) return;
+
+    if (!btnLogin || !btnRegister || !btnLogout) {
+      console.warn("[Auth] Some auth buttons missing in DOM", {
+        btnLogin: !!btnLogin,
+        btnRegister: !!btnRegister,
+        btnLogout: !!btnLogout,
+      });
+      return;
+    }
 
     if (token) {
       setText(statusEl, "Logged in");
       hide(btnLogin);
       hide(btnRegister);
-      show(btnLogout);
+      show(btnLogout, "inline-flex");
     } else {
       setText(statusEl, "");
-      show(btnLogin);
-      show(btnRegister);
+      show(btnLogin, "inline-flex");
+      show(btnRegister, "inline-flex");
       hide(btnLogout);
     }
   }
@@ -225,38 +278,65 @@ function closeAuthModal() {
     const modal = $("#authModal");
     const submit = $("#authSubmit");
 
-    if (btnLogin) btnLogin.addEventListener("click", () => openAuthModal("login"));
-    if (btnRegister) btnRegister.addEventListener("click", () => openAuthModal("register"));
+    // If auth UI not present, skip
+    if (!btnLogin && !btnRegister && !btnLogout && !modal) return;
 
-    if (btnLogout) {
+    if (btnLogin && !btnLogin.dataset.bound) {
+      btnLogin.addEventListener("click", () => openAuthModal("login"), { capture: true });
+      btnLogin.dataset.bound = "1";
+    }
+
+    if (btnRegister && !btnRegister.dataset.bound) {
+      btnRegister.addEventListener("click", () => openAuthModal("register"), { capture: true });
+      btnRegister.dataset.bound = "1";
+    }
+
+    if (btnLogout && !btnLogout.dataset.bound) {
       btnLogout.addEventListener("click", () => {
         setToken("");
         syncAuthButtons();
         alert("Logged out");
-      });
+      }, { capture: true });
+      btnLogout.dataset.bound = "1";
     }
 
-    if (modalClose) modalClose.addEventListener("click", closeAuthModal);
+    if (modalClose && !modalClose.dataset.bound) {
+      modalClose.addEventListener("click", closeAuthModal, { capture: true });
+      modalClose.dataset.bound = "1";
+    }
 
-    // клик по затемнению — закрывает
-    if (modal) {
+    if (modal && !modal.dataset.boundBackdrop) {
       modal.addEventListener("click", (e) => {
         if (e.target === modal) closeAuthModal();
-      });
+      }, { capture: true });
+      modal.dataset.boundBackdrop = "1";
     }
 
-    if (submit) {
+    if (!document.documentElement.dataset.boundEsc) {
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") closeAuthModal();
+      }, { capture: true });
+      document.documentElement.dataset.boundEsc = "1";
+    }
+
+    if (submit && !submit.dataset.bound) {
       submit.addEventListener("click", async () => {
         const mode = submit.dataset.mode || "login";
-        const username = ($("#authUsername").value || "").trim();
-        const password = ($("#authPassword").value || "").trim();
+        const userEl = $("#authUsername");
+        const passEl = $("#authPassword");
         const err = $("#authError");
 
+        if (!userEl || !passEl || !err) {
+          console.error("[Auth] Submit elements missing");
+          return;
+        }
+
+        const username = (userEl.value || "").trim();
+        const password = (passEl.value || "").trim();
+
         if (!username || !password) {
-          if (err) {
-            err.textContent = "Username and password are required.";
-            show(err);
-          }
+          err.textContent = "Username and password are required.";
+          show(err, "block");
           return;
         }
 
@@ -265,27 +345,22 @@ function closeAuthModal() {
 
           if (mode === "register") {
             await doRegister(username, password);
-            // после регистрации — сразу логинимся
-            const tokenResp = await doLogin(username, password);
-            setToken(tokenResp.access_token);
-          } else {
-            const tokenResp = await doLogin(username, password);
-            setToken(tokenResp.access_token);
           }
 
+          const tokenResp = await doLogin(username, password);
+          if (!tokenResp.access_token) throw new Error("No access_token in response");
+
+          setToken(tokenResp.access_token);
           syncAuthButtons();
           closeAuthModal();
           alert(mode === "register" ? "Registered and logged in" : "Logged in");
         } catch (e) {
           console.error(e);
-          if (err) {
-            err.textContent = e.message || "Auth error";
-            show(err);
-          } else {
-            alert(e.message);
-          }
+          err.textContent = e?.message || "Auth error";
+          show(err, "block");
         }
-      });
+      }, { capture: true });
+      submit.dataset.bound = "1";
     }
 
     syncAuthButtons();
@@ -298,44 +373,65 @@ function closeAuthModal() {
 
   async function loadGamesIntoSelector() {
     const selectEl = $("#gameSelect");
+
+    // If selector not present on this page, skip
     if (!selectEl) return;
 
+    // Prevent double binding
+    if (!selectEl.dataset.boundChange) {
+      selectEl.addEventListener("change", () => {
+        const v = selectEl.value;
+        setSelectedGameId(v ? parseInt(v, 10) : null);
+
+        const saved = getSelectedGameId();
+        const selected = cachedGames.find((g) => Number(g.id) === Number(saved));
+        setBadge(selected || null);
+
+        window.location.reload();
+      });
+      selectEl.dataset.boundChange = "1";
+    }
+
+    // Show loading immediately
     selectEl.innerHTML = `<option value="">Loading…</option>`;
 
     try {
       const games = await apiJson(CFG.gamesEndpoint);
-      cachedGames = Array.isArray(games) ? games : (games.items || []);
+      cachedGames = Array.isArray(games) ? games : (games?.items || []);
+
       selectEl.innerHTML = `<option value="">— Select game —</option>`;
+
+      if (!cachedGames.length) {
+        // No games in DB/seed
+        selectEl.innerHTML = `<option value="">(No games available)</option>`;
+        return;
+      }
 
       cachedGames.forEach((g) => {
         const opt = document.createElement("option");
         opt.value = String(g.id);
-        opt.textContent = g.name;
+        opt.textContent = g.name ?? `Game ${g.id}`;
         selectEl.appendChild(opt);
       });
 
       const saved = getSelectedGameId();
       if (saved) selectEl.value = String(saved);
 
-      // badge
-      const selected = cachedGames.find((g) => g.id === saved);
+      const selected = cachedGames.find((g) => Number(g.id) === Number(saved));
       setBadge(selected || null);
     } catch (e) {
-      console.error(e);
+      console.error("[Games] Failed to load", e);
+
+      // Make it obvious in UI why it failed
       selectEl.innerHTML = `<option value="">(Failed to load games)</option>`;
+
+      // Optional: also show warning if exists
+      const warn = $("#game-required-warning");
+      if (warn) {
+        warn.textContent = `Failed to load games: ${e?.message || e}`;
+        show(warn, "block");
+      }
     }
-
-    selectEl.addEventListener("change", () => {
-      const v = selectEl.value;
-      setSelectedGameId(v ? parseInt(v, 10) : null);
-
-      const saved = getSelectedGameId();
-      const selected = cachedGames.find((g) => g.id === saved);
-      setBadge(selected || null);
-
-      // На смену игры: перезагрузка страницы — самый надёжный вариант, чтобы все списки перезапросились
-      window.location.reload();
-    });
   }
 
   // -------------------------
@@ -364,11 +460,10 @@ function closeAuthModal() {
       if (params.is_ranked !== undefined && params.is_ranked !== null) {
         query.set("is_ranked", params.is_ranked ? "true" : "false");
       }
-      query.set("offset", params.offset || 0);
-      query.set("limit", params.limit || 20);
+      query.set("offset", String(params.offset || 0));
+      query.set("limit", String(params.limit || 20));
 
-      const url = `${base}?${query.toString()}`;
-      return await apiJson(url);
+      return await apiJson(`${base}?${query.toString()}`);
     },
 
     async getBattleDetails(battleId) {
@@ -382,9 +477,7 @@ function closeAuthModal() {
       if (!base) throw new Error("Game is not selected");
 
       const params = new URLSearchParams();
-      if (rankedOnly !== undefined && rankedOnly !== null) {
-        params.set("ranked_only", rankedOnly ? "true" : "false");
-      }
+      params.set("ranked_only", rankedOnly ? "true" : "false");
       return await apiJson(`${base}?${params.toString()}`);
     },
 
@@ -393,9 +486,7 @@ function closeAuthModal() {
       if (!base) throw new Error("Game is not selected");
 
       const params = new URLSearchParams();
-      if (rankedOnly !== undefined && rankedOnly !== null) {
-        params.set("ranked_only", rankedOnly ? "true" : "false");
-      }
+      params.set("ranked_only", rankedOnly ? "true" : "false");
       return await apiJson(`${base}?${params.toString()}`);
     },
 
@@ -404,18 +495,15 @@ function closeAuthModal() {
       if (!base) throw new Error("Game is not selected");
 
       const params = new URLSearchParams();
-      if (rankedOnly !== undefined && rankedOnly !== null) {
-        params.set("ranked_only", rankedOnly ? "true" : "false");
-      }
+      params.set("ranked_only", rankedOnly ? "true" : "false");
       return await apiJson(`${base}?${params.toString()}`);
     },
   };
 
   // -------------------------
-  // Pages
+  // Pages (same as before, just using api.*)
   // -------------------------
   function initPlayersPage() {
-    // если игра не выбрана — просто показываем предупреждение и не грузим
     if (showGameRequiredWarningIfNeeded()) return;
 
     const tableBody = document.querySelector("#players-table tbody");
@@ -427,6 +515,11 @@ function closeAuthModal() {
     const summaryCard = document.getElementById("player-summary-card");
     const summaryContent = document.getElementById("player-summary-content");
 
+    if (!tableBody || !reloadBtn || !searchInput || !prevBtn || !nextBtn || !pageInfo) {
+      console.warn("[Players] Some DOM elements missing, page init skipped");
+      return;
+    }
+
     let offset = 0;
     const limit = 20;
     let lastTotal = 0;
@@ -435,7 +528,7 @@ function closeAuthModal() {
     async function loadPage() {
       try {
         const data = await api.getPlayers(offset, limit);
-        lastTotal = data.total || (data.items ? data.items.length : 0);
+        lastTotal = data.total ?? (data.items ? data.items.length : 0);
         allItems = data.items || [];
 
         renderTable(allItems);
@@ -451,33 +544,32 @@ function closeAuthModal() {
       const filter = (searchInput.value || "").toLowerCase().trim();
 
       items
-        .filter((p) => !filter || (p.nickname || "").toLowerCase().includes(filter))
+        .filter((p) => !filter || String(p.nickname || "").toLowerCase().includes(filter))
         .forEach((player) => {
           const tr = document.createElement("tr");
-
           tr.innerHTML = `
             <td>${player.id}</td>
-            <td>${player.nickname}</td>
+            <td>${player.nickname ?? ""}</td>
             <td class="cell-muted">${player.created_at ?? ""}</td>
             <td class="cell-muted">${player.user_id ?? ""}</td>
             <td>
-              <button class="btn btn-secondary btn-sm" data-player-id="${player.id}">
-                Summary
-              </button>
+              <button class="btn btn-secondary btn-sm" data-player-id="${player.id}">Summary</button>
             </td>
           `;
 
           const btn = tr.querySelector("button[data-player-id]");
-          btn.addEventListener("click", async () => {
-            try {
-              const summary = await api.getPlayerSummary(player.id);
-              summaryCard.style.display = "block";
-              summaryContent.textContent = JSON.stringify(summary, null, 2);
-            } catch (e) {
-              console.error(e);
-              alert(e.message);
-            }
-          });
+          if (btn) {
+            btn.addEventListener("click", async () => {
+              try {
+                const summary = await api.getPlayerSummary(player.id);
+                if (summaryCard) summaryCard.style.display = "block";
+                if (summaryContent) summaryContent.textContent = JSON.stringify(summary, null, 2);
+              } catch (e) {
+                console.error(e);
+                alert(e.message);
+              }
+            });
+          }
 
           tableBody.appendChild(tr);
         });
@@ -525,6 +617,11 @@ function closeAuthModal() {
     const detailsCard = document.getElementById("battle-details-card");
     const detailsContent = document.getElementById("battle-details-content");
 
+    if (!tableBody || !reloadBtn || !playerIdInput || !rankedCheckbox || !prevBtn || !nextBtn || !pageInfo) {
+      console.warn("[Battles] Some DOM elements missing, page init skipped");
+      return;
+    }
+
     let offset = 0;
     const limit = 20;
     let lastTotal = 0;
@@ -532,13 +629,12 @@ function closeAuthModal() {
     async function loadPage() {
       try {
         const params = { offset, limit };
-        const playerIdValue = playerIdInput.value.trim();
+        const playerIdValue = (playerIdInput.value || "").trim();
         if (playerIdValue) params.player_id = parseInt(playerIdValue, 10);
-
-        params.is_ranked = rankedCheckbox.checked;
+        params.is_ranked = !!rankedCheckbox.checked;
 
         const data = await api.getBattles(params);
-        lastTotal = data.total || (data.items ? data.items.length : 0);
+        lastTotal = data.total ?? (data.items ? data.items.length : 0);
 
         renderTable(data.items || []);
         updatePagination();
@@ -563,16 +659,18 @@ function closeAuthModal() {
         `;
 
         const btn = tr.querySelector("button[data-battle-id]");
-        btn.addEventListener("click", async () => {
-          try {
-            const details = await api.getBattleDetails(battle.id);
-            detailsCard.style.display = "block";
-            detailsContent.textContent = JSON.stringify(details, null, 2);
-          } catch (e) {
-            console.error(e);
-            alert(e.message);
-          }
-        });
+        if (btn) {
+          btn.addEventListener("click", async () => {
+            try {
+              const details = await api.getBattleDetails(battle.id);
+              if (detailsCard) detailsCard.style.display = "block";
+              if (detailsContent) detailsContent.textContent = JSON.stringify(details, null, 2);
+            } catch (e) {
+              console.error(e);
+              alert(e.message);
+            }
+          });
+        }
 
         tableBody.appendChild(tr);
       });
@@ -588,10 +686,12 @@ function closeAuthModal() {
     }
 
     reloadBtn.addEventListener("click", loadPage);
+
     playerIdInput.addEventListener("change", () => {
       offset = 0;
       loadPage();
     });
+
     rankedCheckbox.addEventListener("change", () => {
       offset = 0;
       loadPage();
@@ -625,8 +725,13 @@ function closeAuthModal() {
     const mapsTbody = document.querySelector("#stats-maps-table tbody");
     const weaponsTbody = document.querySelector("#stats-weapons-table tbody");
 
+    if (!playerIdInput || !rankedCheckbox || !loadBtn || !summaryPre || !mapsTbody || !weaponsTbody) {
+      console.warn("[Stats] Some DOM elements missing, page init skipped");
+      return;
+    }
+
     async function loadStats() {
-      const idValue = playerIdInput.value.trim();
+      const idValue = (playerIdInput.value || "").trim();
       if (!idValue) {
         alert("Please enter player ID");
         return;
@@ -638,7 +743,7 @@ function closeAuthModal() {
         return;
       }
 
-      const rankedOnly = rankedCheckbox.checked;
+      const rankedOnly = !!rankedCheckbox.checked;
 
       try {
         const [summary, maps, weapons] = await Promise.all([
@@ -648,8 +753,8 @@ function closeAuthModal() {
         ]);
 
         summaryPre.textContent = JSON.stringify(summary, null, 2);
-        renderMaps(maps);
-        renderWeapons(weapons);
+        renderMaps(maps || []);
+        renderWeapons(weapons || []);
       } catch (e) {
         console.error(e);
         alert(e.message);
@@ -696,20 +801,24 @@ function closeAuthModal() {
   }
 
   // -------------------------
-  // Global init on every page
+  // Global init
   // -------------------------
   function initCommon() {
-    initAuthUI();
-    loadGamesIntoSelector();
-    showGameRequiredWarningIfNeeded();
+    try {
+      initAuthUI();
+      loadGamesIntoSelector();
+      showGameRequiredWarningIfNeeded();
+    } catch (e) {
+      console.error("[initCommon] fatal", e);
+    }
   }
 
-  // run common init
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", initCommon);
   } else {
     initCommon();
   }
+
   return {
     initPlayersPage,
     initBattlesPage,
