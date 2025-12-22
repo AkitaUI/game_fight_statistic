@@ -37,12 +37,16 @@ class BattleService:
     # --- battle ops ---
 
     def create_battle(self, game_id: int, data: BattleCreate) -> BattleRead:
+        # Swagger/клиенты иногда шлют 0 → превращаем в NULL, чтобы не ловить FK
+        map_id = None if (data.map_id in (0, "0")) else data.map_id
+        mode_id = None if (data.mode_id in (0, "0")) else data.mode_id
+
         battle = self.battle_repo.create_battle(
             game_id=game_id,
-            map_id=data.map_id,
-            mode_id=data.mode_id,
-            is_ranked=data.is_ranked,
             started_at=data.started_at or datetime.utcnow(),
+            map_id=map_id,
+            mode_id=mode_id,
+            is_ranked=data.is_ranked,
             external_match_id=data.external_match_id,
         )
         self.session.commit()

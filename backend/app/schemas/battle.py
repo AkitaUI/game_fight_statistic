@@ -67,9 +67,12 @@ class BattleBase(ORMModel):
     external_match_id: Optional[str] = None
 
 
-class BattleCreate(BattleBase):
-    """Создание боя."""
-    pass
+class BattleCreate(BaseModel):
+    map_id: Optional[int] = Field(default=None, description="Map ID (optional)")
+    mode_id: Optional[int] = Field(default=None, description="Mode ID (optional)")
+    is_ranked: bool = False
+    started_at: Optional[datetime] = None
+    external_match_id: Optional[str] = None
 
 
 class BattleRead(BattleBase):

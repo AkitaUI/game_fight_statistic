@@ -7,6 +7,9 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api import api_router
 from app.views import router as views_router
+from app.api.ui_proxy import router as ui_proxy_router
+
+app.include_router(ui_proxy_router)
 
 
 def create_app() -> FastAPI:

@@ -21,11 +21,12 @@ class StatsService:
     # --- Статистика по игроку ---
 
     def get_player_summary(self, game_id: int, player_id: int, filters: PlayerStatsFilter) -> PlayerStatsSummary:
-        player = self.player_repo.with_game(game_id).get_by_id(player_id)
+        # filters пока не прокидываем в репозиторий, но сигнатуру сохраняем
+        player = self.player_repo.get_by_id(player_id, game_id=game_id)
         if player is None:
             raise PlayerNotFoundError(f"Player with id={player_id} not found in game_id={game_id}")
 
-        raw = self.stats_repo.with_game(game_id).get_player_stats_summary(player_id=player_id)
+        raw = self.stats_repo.get_player_stats_summary(player_id=player_id, game_id=game_id)
         if raw is None:
             return PlayerStatsSummary(
                 player_id=player_id,
@@ -45,17 +46,17 @@ class StatsService:
         return PlayerStatsSummary(**raw)
 
     def get_player_map_stats(self, game_id: int, player_id: int, filters: PlayerStatsFilter) -> List[MapStatsItem]:
-        player = self.player_repo.with_game(game_id).get_by_id(player_id)
+        player = self.player_repo.get_by_id(player_id, game_id=game_id)
         if player is None:
             raise PlayerNotFoundError(f"Player with id={player_id} not found in game_id={game_id}")
 
-        rows = self.stats_repo.with_game(game_id).get_player_stats_by_map(player_id=player_id)
+        rows = self.stats_repo.get_player_stats_by_map(player_id=player_id, game_id=game_id)
         return [MapStatsItem(**row) for row in rows]
 
     def get_player_weapon_stats(self, game_id: int, player_id: int, filters: PlayerStatsFilter) -> List[WeaponStatsItem]:
-        player = self.player_repo.with_game(game_id).get_by_id(player_id)
+        player = self.player_repo.get_by_id(player_id, game_id=game_id)
         if player is None:
             raise PlayerNotFoundError(f"Player with id={player_id} not found in game_id={game_id}")
 
-        rows = self.stats_repo.with_game(game_id).get_player_weapon_stats(player_id=player_id)
+        rows = self.stats_repo.get_player_weapon_stats(player_id=player_id, game_id=game_id)
         return [WeaponStatsItem(**row) for row in rows]
