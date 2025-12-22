@@ -468,3 +468,5 @@ input[type="checkbox"] {
     background: rgba(15, 23, 42, 0.08);
     color: #111827;
 }
+
+#authModal { z-index: 100000; pointer-events:auto; }

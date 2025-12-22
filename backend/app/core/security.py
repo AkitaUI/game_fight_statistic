@@ -11,6 +11,20 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def hash_password(password: str) -> str:
+    # Жесткая проверка типа
+    if not isinstance(password, str):
+        raise ValueError(f"Password must be str, got {type(password)}: {repr(password)[:200]}")
+
+    b = password.encode("utf-8")
+    # Принудительно печатаем и принудительно флашим
+    print("HASH_PASSWORD REPR:", repr(password), flush=True)
+    print("HASH_PASSWORD len(chars):", len(password), flush=True)
+    print("HASH_PASSWORD len(bytes):", len(b), flush=True)
+
+    # Если вдруг >72 — не даём дойти до bcrypt и падаем с понятным текстом
+    if len(b) > 72:
+        raise ValueError(f"Password too long for bcrypt: {len(b)} bytes (max 72). REPR={repr(password)[:200]}")
+
     return pwd_context.hash(password)
 
 

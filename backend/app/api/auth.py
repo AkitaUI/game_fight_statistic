@@ -20,6 +20,17 @@ def register(payload: UserRegister, db: Session = Depends(get_db)) -> User:
     existing = db.query(User).filter(User.username == payload.username).one_or_none()
     if existing:
         raise HTTPException(status_code=400, detail="Username already taken")
+    
+    pwd = payload.password
+    print("PASSWORD TYPE:", type(pwd))
+    print("PASSWORD REPR:", repr(pwd))
+    print("PASSWORD len(chars):", len(pwd))
+    print("PASSWORD len(bytes):", len(pwd.encode("utf-8")))
+
+    try:
+        password_hash = hash_password(pwd)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     user = User(
         username=payload.username,

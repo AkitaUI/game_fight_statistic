@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional, List
 
-from pydantic import Field
+from pydantic import Field, BaseModel, ConfigDict
 
 from .base import ORMModel
 

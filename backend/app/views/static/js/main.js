@@ -123,7 +123,7 @@ window.GameStatsUI = (function () {
   // -------------------------
   // Auth UI
   // -------------------------
-  function openAuthModal(mode /* 'login' | 'register' */) {
+function openAuthModal(mode /* 'login' | 'register' */) {
     const modal = $("#authModal");
     const title = $("#authModalTitle");
     const hint = $("#authModalHint");
@@ -132,27 +132,36 @@ window.GameStatsUI = (function () {
 
     if (!modal || !title || !hint || !submit) return;
 
-    hide(err);
-    $("#authUsername").value = "";
-    $("#authPassword").value = "";
+    if (err) { err.style.display = "none"; err.textContent = ""; }
+
+    const u = $("#authUsername");
+    const p = $("#authPassword");
+    if (u) u.value = "";
+    if (p) p.value = "";
 
     if (mode === "register") {
-      title.textContent = "Register";
-      hint.textContent = "Create a new account (username + password).";
-      submit.dataset.mode = "register";
+        title.textContent = "Register";
+        hint.textContent = "Create a new account (username + password).";
+        submit.dataset.mode = "register";
     } else {
-      title.textContent = "Login";
-      hint.textContent = "Enter your username and password to get access token.";
-      submit.dataset.mode = "login";
+        title.textContent = "Login";
+        hint.textContent = "Enter your username and password to get access token.";
+        submit.dataset.mode = "login";
     }
 
-    show(modal);
-  }
+    // ✅ ЖЕЛЕЗОБЕТОННО показываем и поднимаем наверх
+    modal.style.display = "block";
+    modal.style.visibility = "visible";
+    modal.style.opacity = "1";
+    modal.style.pointerEvents = "auto";
+    modal.style.zIndex = "2147483647";
+}
 
-  function closeAuthModal() {
+function closeAuthModal() {
     const modal = $("#authModal");
-    if (modal) hide(modal);
-  }
+    if (!modal) return;
+    modal.style.display = "none";
+}
 
   async function doRegister(username, password) {
     const payload = { username, password };
@@ -696,8 +705,11 @@ window.GameStatsUI = (function () {
   }
 
   // run common init
-  document.addEventListener("DOMContentLoaded", initCommon);
-
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initCommon);
+  } else {
+    initCommon();
+  }
   return {
     initPlayersPage,
     initBattlesPage,

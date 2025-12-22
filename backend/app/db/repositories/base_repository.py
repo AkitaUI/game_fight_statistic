@@ -1,7 +1,7 @@
 # app/db/repositories/base_repository.py
 from __future__ import annotations
 
-from typing import Generic, TypeVar, Type, Optional, List
+from typing import Generic, TypeVar, Type, Optional, List, Self
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -22,11 +22,7 @@ class BaseRepository(Generic[T]):
         self.model = model
         self._game_id = game_id
 
-    def with_game(self, game_id: int) -> "BaseRepository[T]":
-        """
-        Возвращает репозиторий того же типа, но с зафиксированным game_id.
-        """
-        # Важно: возвращаем экземпляр ТЕКУЩЕГО класса, а не BaseRepository
+    def with_game(self, game_id: int) -> Self:
         return self.__class__(self.session, game_id=game_id)  # type: ignore[misc]
 
     def require_game_id(self) -> int:

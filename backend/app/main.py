@@ -1,15 +1,16 @@
 # app/main.py
 from __future__ import annotations
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+
+from app.core.exceptions import PlayerNotFoundError
 
 from app.api import api_router
 from app.views import router as views_router
 from app.api.ui_proxy import router as ui_proxy_router
-
-app.include_router(ui_proxy_router)
 
 
 def create_app() -> FastAPI:
@@ -17,6 +18,8 @@ def create_app() -> FastAPI:
         title="Game Battles Stats API",
         version="1.0.0",
     )
+
+    app.include_router(ui_proxy_router)
 
     app.add_middleware(
         CORSMiddleware,
@@ -37,6 +40,14 @@ def create_app() -> FastAPI:
         "/static",
         StaticFiles(directory="app/views/static"),
         name="static",
+    )
+
+    
+    @app.exception_handler(PlayerNotFoundError)
+    async def player_not_found_handler(request: Request, exc: PlayerNotFoundError):
+        return JSONResponse(
+            status_code=404,
+            content={"detail": str(exc)},
     )
 
     return app
