@@ -6,6 +6,9 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user, require_roles
+from app.db.models.user import UserRole
+
 from app.core.exceptions import PlayerAlreadyExistsError, PlayerNotFoundError
 from app.db.session import get_db
 from app.schemas.base import PagedResponse
@@ -16,7 +19,12 @@ from app.services.player_service import PlayerService
 router = APIRouter(prefix="/games/{game_id}/players", tags=["players"])
 
 
-@router.post("", response_model=PlayerRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=PlayerRead,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_roles(UserRole.player, UserRole.admin))],
+)
 def create_player(
     game_id: int,
     player_in: PlayerCreate,
@@ -29,7 +37,11 @@ def create_player(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
 
 
-@router.get("/{player_id}", response_model=PlayerRead)
+@router.get(
+    "/{player_id}",
+    response_model=PlayerRead,
+    dependencies=[Depends(get_current_user)],  # ✅ любой авторизованный
+)
 def get_player(
     game_id: int,
     player_id: int,
@@ -42,7 +54,11 @@ def get_player(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 
 
-@router.get("", response_model=PagedResponse)
+@router.get(
+    "",
+    response_model=PagedResponse,
+    dependencies=[Depends(get_current_user)],  # ✅ любой авторизованный
+)
 def list_players(
     game_id: int,
     offset: int = Query(0, ge=0),
@@ -55,7 +71,11 @@ def list_players(
     return PagedResponse(total=total, items=items)
 
 
-@router.delete("/{player_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{player_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_roles(UserRole.player, UserRole.admin))],
+)
 def delete_player(
     game_id: int,
     player_id: int,
@@ -68,7 +88,11 @@ def delete_player(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 
 
-@router.get("/{player_id}/summary", response_model=PlayerWithStatsSummary)
+@router.get(
+    "/{player_id}/summary",
+    response_model=PlayerWithStatsSummary,
+    dependencies=[Depends(get_current_user)],  # ✅ любой авторизованный
+)
 def get_player_summary(
     game_id: int,
     player_id: int,

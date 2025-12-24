@@ -7,6 +7,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user
 from app.core.exceptions import PlayerNotFoundError
 from app.db.session import get_db
 from app.schemas.player import PlayerStatsSummary
@@ -16,7 +17,11 @@ from app.services.stats_service import StatsService
 router = APIRouter(prefix="/games/{game_id}/stats", tags=["stats"])
 
 
-@router.get("/players/{player_id}", response_model=PlayerStatsSummary)
+@router.get(
+    "/players/{player_id}",
+    response_model=PlayerStatsSummary,
+    dependencies=[Depends(get_current_user)],  # ✅ любой авторизованный
+)
 def get_player_summary(
     game_id: int,
     player_id: int,
@@ -41,7 +46,11 @@ def get_player_summary(
         raise HTTPException(status_code=404, detail=str(exc))
 
 
-@router.get("/players/{player_id}/maps", response_model=List[MapStatsItem])
+@router.get(
+    "/players/{player_id}/maps",
+    response_model=List[MapStatsItem],
+    dependencies=[Depends(get_current_user)],  # ✅ любой авторизованный
+)
 def get_player_map_stats(
     game_id: int,
     player_id: int,
@@ -66,7 +75,11 @@ def get_player_map_stats(
         raise HTTPException(status_code=404, detail=str(exc))
 
 
-@router.get("/players/{player_id}/weapons", response_model=List[WeaponStatsItem])
+@router.get(
+    "/players/{player_id}/weapons",
+    response_model=List[WeaponStatsItem],
+    dependencies=[Depends(get_current_user)],  # ✅ любой авторизованный
+)
 def get_player_weapon_stats(
     game_id: int,
     player_id: int,

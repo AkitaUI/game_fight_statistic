@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Optional
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -45,3 +45,19 @@ def decode_token(token: str, *, secret_key: str, algorithm: str) -> dict[str, An
         return payload
     except JWTError as e:
         raise ValueError("Invalid token") from e
+
+def create_access_token(
+    subject: str,
+    secret_key: str,
+    algorithm: str,
+    expires_minutes: int,
+    extra: Optional[dict[str, Any]] = None,
+) -> str:
+    now = datetime.now(timezone.utc)
+    expire = now + timedelta(minutes=expires_minutes)
+
+    payload: dict[str, Any] = {"sub": subject, "exp": expire}
+    if extra:
+        payload.update(extra)
+
+    return jwt.encode(payload, secret_key, algorithm=algorithm)

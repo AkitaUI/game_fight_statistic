@@ -7,6 +7,9 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user, require_roles
+from app.db.models.user import UserRole
+
 from app.core.exceptions import (
     BattleAlreadyFinishedError,
     BattleNotFoundError,
@@ -21,7 +24,12 @@ from app.services.battle_service import BattleService
 router = APIRouter(prefix="/games/{game_id}/battles", tags=["battles"])
 
 
-@router.post("", response_model=BattleRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=BattleRead,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_roles(UserRole.player, UserRole.admin))],
+)
 def create_battle(
     game_id: int,
     battle_in: BattleCreate,
@@ -31,7 +39,11 @@ def create_battle(
     return service.create_battle(game_id=game_id, data=battle_in)
 
 
-@router.get("/{battle_id}", response_model=BattleRead)
+@router.get(
+    "/{battle_id}",
+    response_model=BattleRead,
+    dependencies=[Depends(get_current_user)],  # ✅ любой авторизованный
+)
 def get_battle(
     game_id: int,
     battle_id: int,
@@ -44,7 +56,11 @@ def get_battle(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 
 
-@router.get("", response_model=PagedResponse)
+@router.get(
+    "",
+    response_model=PagedResponse,
+    dependencies=[Depends(get_current_user)],  # ✅ любой авторизованный
+)
 def list_battles(
     game_id: int,
     player_id: Optional[int] = Query(None),
@@ -73,7 +89,11 @@ def list_battles(
     return PagedResponse(total=total, items=battles)
 
 
-@router.post("/{battle_id}/finish", response_model=BattleRead)
+@router.post(
+    "/{battle_id}/finish",
+    response_model=BattleRead,
+    dependencies=[Depends(require_roles(UserRole.player, UserRole.admin))],
+)
 def finish_battle(
     game_id: int,
     battle_id: int,
