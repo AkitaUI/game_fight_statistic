@@ -12,6 +12,10 @@ from app.api import api_router
 from app.views import router as views_router
 from app.api.ui_proxy import router as ui_proxy_router
 
+from app.core.seed import seed_initial_admin
+from app.db.session import SessionLocal  # если у тебя так называется фабрика сессий
+
+
 
 def create_app() -> FastAPI:
     app = FastAPI(
@@ -52,5 +56,12 @@ def create_app() -> FastAPI:
 
     return app
 
-
+@app.on_event("startup")
+def _seed_admin_on_startup() -> None:
+    db = SessionLocal()
+    try:
+        seed_initial_admin(db)
+    finally:
+        db.close()
+        
 app = create_app()
