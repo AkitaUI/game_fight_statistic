@@ -26,8 +26,8 @@ services:
       # Совпадает с тем, что мы используем в app/core/config.py
       DATABASE_URL: postgresql+psycopg2://user:password@db:5432/game_stats
       SEED_ADMIN: "true"
-      ADMIN_USERNAME: "admin"
-      ADMIN_PASSWORD: "admin"
+      ADMIN_USERNAME: "admin_user"
+      ADMIN_PASSWORD: "adminadmin"
     depends_on:
       - db
     ports:

@@ -56,6 +56,8 @@ def create_app() -> FastAPI:
 
     return app
 
+app = create_app()
+
 @app.on_event("startup")
 def _seed_admin_on_startup() -> None:
     db = SessionLocal()
@@ -63,5 +65,3 @@ def _seed_admin_on_startup() -> None:
         seed_initial_admin(db)
     finally:
         db.close()
-        
-app = create_app()
