@@ -57,6 +57,7 @@
                 <button id="btnRegister" class="btn btn-secondary" type="button">Register</button>
                 <button id="btnLogout" class="btn btn-danger" type="button" style="display:none;">Logout</button>
                 <span id="userInfo" class="auth-userinfo"></span>
+                <span id="authRole" class="badge"></span>
             </div>
             {% endif %}
         </div>
@@ -118,6 +119,42 @@
         </div>
     </div>
 </div>
+
+<section id="adminPanel" style="display:none; margin-top:16px;">
+  <h3>Admin panel</h3>
+
+  <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
+    <div>
+      <label>New user username</label><br/>
+      <input id="adminNewUsername" class="input" />
+    </div>
+    <div>
+      <label>New user password</label><br/>
+      <input id="adminNewPassword" class="input" type="password" />
+    </div>
+    <div>
+      <label>Role</label><br/>
+      <select id="adminNewRole" class="input">
+        <option value="player">player</option>
+        <option value="analyst">analyst</option>
+        <option value="admin">admin</option>
+      </select>
+    </div>
+    <button id="adminCreateUser" class="btn">Create user</button>
+  </div>
+
+  <hr style="margin:16px 0;" />
+
+  <button id="adminReloadUsers" class="btn btn-secondary">Reload users</button>
+
+  <table style="width:100%; margin-top:12px;" class="table">
+    <thead>
+      <tr><th>ID</th><th>Username</th><th>Role</th><th>Action</th></tr>
+    </thead>
+    <tbody id="adminUsersTbody"></tbody>
+  </table>
+</section>
+
 
 <script>
   // Базовые константы для JS (main.js будет использовать)

@@ -11,6 +11,8 @@ window.GameStatsUI = (function () {
     authRegisterEndpoint: "/api/auth/register",
     authTokenEndpoint: "/api/auth/token",
     authMeEndpoint: "/api/auth/me",
+    authMeEndpoint: "/api/auth/me",
+    usersEndpoint: "/api/users",
     storageKeys: { token: "access_token", gameId: "selected_game_id" },
   };
 
@@ -385,6 +387,7 @@ window.GameStatsUI = (function () {
 
           setToken(tokenResp.access_token);
           syncAuthButtons();
+          await loadMeAndRenderRole();
           await renderUserBadge();
           closeAuthModal();
           alert(mode === "register" ? "Registered and logged in" : "Logged in");
@@ -399,6 +402,157 @@ window.GameStatsUI = (function () {
 
     syncAuthButtons();
   }
+
+  // -------------------------
+  // Me (role) + Admin UI
+  // -------------------------
+  let currentMe = null; // {id, username, role}
+
+  async function loadMe() {
+    // если нет токена — чистим
+    if (!getToken()) {
+      currentMe = null;
+      return null;
+    }
+    try {
+      const me = await apiJson(CFG.authMeEndpoint);
+      currentMe = me;
+      return me;
+    } catch (e) {
+      // токен может быть невалидным/просроченным
+      console.warn("[Auth] /me failed:", e);
+      currentMe = null;
+      return null;
+    }
+  }
+
+  function syncRoleUI() {
+    const roleEl = $("#authRole");
+    const panel = $("#adminPanel");
+
+    if (roleEl) {
+      if (currentMe?.role) {
+        roleEl.textContent = `Role: ${currentMe.role}`;
+        show(roleEl, "inline-flex");
+      } else {
+        roleEl.textContent = "";
+        hide(roleEl);
+      }
+    }
+
+    if (panel) {
+      const isAdmin = String(currentMe?.role || "").toLowerCase() === "admin";
+      if (isAdmin) show(panel, "block");
+      else hide(panel);
+    }
+  }
+
+  async function loadMeAndRenderRole() {
+    await loadMe();
+    syncRoleUI();
+    // если админ — подтянем пользователей
+    if (String(currentMe?.role || "").toLowerCase() === "admin") {
+      await adminReloadUsers();
+    }
+  }
+
+  async function adminReloadUsers() {
+    const tbody = $("#adminUsersTbody");
+    if (!tbody) return;
+
+    tbody.innerHTML = `<tr><td colspan="4">Loading...</td></tr>`;
+    try {
+      const users = await apiJson(CFG.usersEndpoint);
+      tbody.innerHTML = "";
+
+      users.forEach((u) => {
+        const tr = document.createElement("tr");
+
+        const roleSelectId = `role_${u.id}`;
+        tr.innerHTML = `
+          <td>${u.id}</td>
+          <td>${u.username}</td>
+          <td>
+            <select id="${roleSelectId}" class="input">
+              <option value="player">player</option>
+              <option value="analyst">analyst</option>
+              <option value="admin">admin</option>
+            </select>
+          </td>
+          <td><button class="btn btn-secondary btn-sm" data-user-id="${u.id}">Save</button></td>
+        `;
+
+        const sel = tr.querySelector(`#${roleSelectId}`);
+        if (sel) sel.value = String(u.role);
+
+        const btn = tr.querySelector("button[data-user-id]");
+        if (btn) {
+          btn.addEventListener("click", async () => {
+            const newRole = sel ? sel.value : "player";
+            try {
+              await apiJson(`${CFG.usersEndpoint}/${u.id}/role`, {
+                method: "PATCH",
+                body: JSON.stringify({ role: newRole }),
+              });
+              alert("Role updated");
+              await adminReloadUsers();
+            } catch (e) {
+              console.error(e);
+              alert(e.message);
+            }
+          });
+        }
+
+        tbody.appendChild(tr);
+      });
+    } catch (e) {
+      console.error(e);
+      tbody.innerHTML = `<tr><td colspan="4">Failed: ${String(e?.message || e)}</td></tr>`;
+    }
+  }
+
+  function initAdminPanel() {
+    const reloadBtn = $("#adminReloadUsers");
+    const createBtn = $("#adminCreateUser");
+
+    if (reloadBtn && !reloadBtn.dataset.bound) {
+      reloadBtn.addEventListener("click", adminReloadUsers);
+      reloadBtn.dataset.bound = "1";
+    }
+
+    if (createBtn && !createBtn.dataset.bound) {
+      createBtn.addEventListener("click", async () => {
+        const u = $("#adminNewUsername");
+        const p = $("#adminNewPassword");
+        const r = $("#adminNewRole");
+
+        const username = (u?.value || "").trim();
+        const password = (p?.value || "").trim();
+        const role = (r?.value || "player").trim();
+
+        if (!username || !password) {
+          alert("username & password required");
+          return;
+        }
+
+        try {
+          await apiJson(CFG.usersEndpoint, {
+            method: "POST",
+            body: JSON.stringify({ username, password, role }),
+          });
+          alert("User created");
+          if (u) u.value = "";
+          if (p) p.value = "";
+          await adminReloadUsers();
+        } catch (e) {
+          console.error(e);
+          alert(e.message);
+        }
+      });
+      createBtn.dataset.bound = "1";
+    }
+  }
+
 
   // -------------------------
   // Games selector
@@ -840,13 +994,20 @@ window.GameStatsUI = (function () {
   function initCommon() {
     try {
       initAuthUI();
-      renderUserBadge();
+      initAdminPanel();
+
       loadGamesIntoSelector();
       showGameRequiredWarningIfNeeded();
+
+      // если уже залогинен — покажем роль и (если админ) панель
+      if (getToken()) {
+        loadMeAndRenderRole();
+      }
     } catch (e) {
       console.error("[initCommon] fatal", e);
     }
   }
+
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", initCommon);
