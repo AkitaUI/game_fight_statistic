@@ -10,6 +10,7 @@ window.GameStatsUI = (function () {
     gamesEndpoint: "/api/games",
     authRegisterEndpoint: "/api/auth/register",
     authTokenEndpoint: "/api/auth/token",
+    authMeEndpoint: "/api/auth/me",
     storageKeys: { token: "access_token", gameId: "selected_game_id" },
   };
 
@@ -184,6 +185,37 @@ window.GameStatsUI = (function () {
     return data || {};
   }
 
+  async function apiMe() {
+    const token = getToken();
+    if (!token) return null;
+
+    try {
+      // Важно: используем apiFetch, чтобы автоматически проставлялся Bearer токен
+      const resp = await apiFetch(CFG.authMeEndpoint || "/api/auth/me", { method: "GET" });
+      if (!resp.ok) return null;
+      return await resp.json();
+    } catch (e) {
+      console.warn("[Auth] /auth/me failed", e);
+      return null;
+    }
+  }
+
+  async function renderUserBadge() {
+    const slot = $("#userInfo");
+    if (!slot) return;
+
+    const user = await apiMe();
+    if (!user) {
+      slot.textContent = "";
+      return;
+    }
+
+    // ожидаем что бэкенд отдаёт хотя бы username и role
+    const role = user.role ?? user.user_role ?? "";
+    slot.textContent = role ? `${user.username} (${role})` : `${user.username}`;
+  }
+
+
   function openAuthModal(mode /* 'login' | 'register' */) {
     const modal = $("#authModal");
     const title = $("#authModalTitle");
@@ -292,9 +324,10 @@ window.GameStatsUI = (function () {
     }
 
     if (btnLogout && !btnLogout.dataset.bound) {
-      btnLogout.addEventListener("click", () => {
+      btnLogout.addEventListener("click", async () => {
         setToken("");
         syncAuthButtons();
+        await renderUserBadge();
         alert("Logged out");
       }, { capture: true });
       btnLogout.dataset.bound = "1";
@@ -352,6 +385,7 @@ window.GameStatsUI = (function () {
 
           setToken(tokenResp.access_token);
           syncAuthButtons();
+          await renderUserBadge();
           closeAuthModal();
           alert(mode === "register" ? "Registered and logged in" : "Logged in");
         } catch (e) {
@@ -806,6 +840,7 @@ window.GameStatsUI = (function () {
   function initCommon() {
     try {
       initAuthUI();
+      renderUserBadge();
       loadGamesIntoSelector();
       showGameRequiredWarningIfNeeded();
     } catch (e) {
